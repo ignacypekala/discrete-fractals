@@ -8,7 +8,7 @@ ERROR_EXIT_CODE equ 1
 
 _start:
     pop         rdi                     ; Get parameter count
-    sub         rdi, 2                  ; Expect program name and iteration count
+    cmp         rdi, 2                  ; Expect program name and iteration count
     jnz         .error
 
     mov         rax, SYS_BRK 
