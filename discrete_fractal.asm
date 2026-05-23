@@ -1,27 +1,79 @@
 global _start
 
-SYS_EXIT equ 60
-SYS_READ equ 0
-SYS_BRK equ 12
-SUCCESS_EXIT_CODE equ 0
-ERROR_EXIT_CODE equ 1
+SYS_EXIT        equ 60
+SYS_READ        equ 0
+SYS_BRK         equ 12
+SYS_MMAP        equ 9
+
+PROT_READ       equ 0x1
+PROT_WRITE      equ 0x2
+MAP_PRIVATE     equ 0x01
+MAP_ANONYMOUS   equ 0x20
+
+READ_ERROR      equ -1
+MAP_FAILED      equ -1
+EOF             equ 0
+
+STD_IN          equ 0
+STD_OUT         equ 1
+
+INITIAL_BUFFER_SIZE         equ 4096
+INITIAL_BUFFER_SIZE_HALF    equ 2048
+
+PARAMETER_COUNT equ 2                           ; program name + iteration count
+ERROR_CODE      equ 1
 
 _start:
-    ; Validate parameter count (program name + iteration count)
+    ; Validate parameter count.
     pop         rdi
-    cmp         rdi, 2
+    cmp         rdi, PARAMETER_COUNT
     jnz         .error
 
-    ; Get current heap start 
-    mov         rax, SYS_BRK 
-    xor         edi, edi
+    ; Allocate input string buffer
+    mov         rax, SYS_MMAP
+    mov         edi, 0                          ; address hint
+    mov         esi, INITIAL_BUFFER_SIZE
+    mov         edx, PROT_READ | PROT_WRITE
+    mov         r10, MAP_PRIVATE | MAP_ANONYMOUS
+    xor         r8, r8                          ; file descriptor
+    xor         r9, r9                          ; offset
+    syscall
+    cmp         rax, MAP_FAILED
+    jz          .error
+
+    mov         r9, rax                         ; input string buffer address
+    push        r10
+    mov         r10, INITIAL_BUFFER_SIZE_HALF
+
+.read_input:
+    mov         rax, SYS_READ
+    mov         edi, STD_IN
+    mov         rsi, [r9 + r10]                 ; the free half of the buffer
+    mov         rdx, r10                        ; the size of it
     syscall
 
+    cmp         rax, READ_ERROR
+    jz          .input_error
+
+    cmp         rax, r10
+    jb          .input_loaded                   ; all the input was read 
+    
+    shl         r10, 1                          ; increase the buffer
+
+    ; TODO: Reallocate the buffer
+
+.input_loaded:
+
+    pop r11
+    pop r10
     mov         eax, SYS_EXIT
     xor         edi, edi
     syscall
 
+.input_error:
+    ; TODO: Free the input buffer
+    
 .error:
     mov         eax, SYS_EXIT
-    mov         edi, ERROR_EXIT_CODE
+    mov         edi, ERROR_CODE
     syscall
