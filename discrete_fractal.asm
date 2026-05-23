@@ -7,13 +7,16 @@ SUCCESS_EXIT_CODE equ 0
 ERROR_EXIT_CODE equ 1
 
 _start:
-    pop         rdi                     ; Get parameter count
-    cmp         rdi, 2                  ; Expect program name and iteration count
+    
+    ; Validate parameter count (program name + iteration count)
+    pop         rdi
+    cmp         rdi, 2
     jnz         .error
 
+    ; Get current heap start 
     mov         rax, SYS_BRK 
     xor         edi, edi
-    syscall                             ; Get current heap start 
+    syscall                             
 
     mov         eax, SYS_EXIT
     xor         edi, edi
