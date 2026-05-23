@@ -6,15 +6,15 @@ SUCCESS_EXIT_CODE equ 0
 ERROR_EXIT_CODE equ 1
 
 _start:
-    pop rdi                             ; Get parameter count
-    sub rdi, 2                          ; Expect program name and iteration count
-    jnz .error
+    pop         rdi                     ; Get parameter count
+    sub         rdi, 2                  ; Expect program name and iteration count
+    jnz         .error
 
-    mov eax, SYS_EXIT
-    xor edi, edi
+    mov         eax, SYS_EXIT
+    xor         edi, edi
     syscall
 
 .error:
-    mov eax, SYS_EXIT
-    mov edi, ERROR_EXIT_CODE
+    mov         eax, SYS_EXIT
+    mov         edi, ERROR_EXIT_CODE
     syscall
