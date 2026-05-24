@@ -49,7 +49,7 @@ _start:
 .load_initial_string_chunk:
     mov         rax, SYS_READ
     mov         edi, STD_IN
-    mov         rsi, [r9 + r10]                 ; the free half of the buffer
+    lea         rsi, [r9 + r10]                 ; the free half of the buffer
     mov         rdx, r10                        ; the size of it
     syscall
     cmp         rax, READ_ERROR
