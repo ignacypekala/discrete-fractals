@@ -43,7 +43,6 @@ _start:
     jz          .error
 
     mov         r9, rax                         ; string buffer address
-    push        r10
     mov         r10, INITIAL_BUFFER_SIZE_HALF
 
 .load_initial_string_chunk:
@@ -68,8 +67,6 @@ _start:
 
 .input_loaded:
 
-    pop r11
-    pop r10
     mov         eax, SYS_EXIT
     xor         edi, edi
     syscall
