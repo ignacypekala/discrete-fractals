@@ -8,8 +8,9 @@ SYS_MREMAP      equ 25
 
 PROT_READ       equ 0x1
 PROT_WRITE      equ 0x2
-MAP_PRIVATE     equ 0x01
+MAP_PRIVATE     equ 0x02
 MAP_ANONYMOUS   equ 0x20
+MREMAP_MAYMOVE  equ 0x1
 
 READ_ERROR      equ -1
 MAP_FAILED      equ -1
@@ -19,7 +20,6 @@ STD_IN          equ 0
 STD_OUT         equ 1
 
 INITIAL_BUFFER_SIZE         equ 4096
-INITIAL_BUFFER_SIZE_HALF    equ 2048
 
 LINE_BREAK      equ 10
 
@@ -45,43 +45,50 @@ _start:
     cmp         rax, MAP_FAILED
     jz          .error_exit
 
-    mov         r11, rax                         ; string buffer address
-    mov         r10, INITIAL_BUFFER_SIZE_HALF
+    ; Initialize the string buffer state
+    mov         r14, rax                        ; base address
+    mov         r10, INITIAL_BUFFER_SIZE        ; total size
+    xor         r12, r12                        ; current offset
 
 .load_initial_string_chunk:
     mov         rax, SYS_READ
-    mov         edi, STD_IN
-    lea         rsi, [r11 + r10]                 ; the free half of the buffer
-    mov         rdx, r10                        ; the size of the empty half
+    xor         edi, edi                        ; STD_IN
+    lea         rsi, [r14 + r12]                ; the free part of the buffer
+    mov         rdx, r10
+    sub         rdx, r12                        ; the size of the empty space
     syscall
-    cmp         rax, READ_ERROR
-    jz          .free_string_buffer_and_quit
+    test         rax, rax
+    js          .free_string_buffer_and_quit
+
+    ; As of now the register r12 holds a stale value but it will be needed for input processing.
+    mov         r13, rax                        ; Save the new number of bytes read.
 
     test        rax, rax
-    jz          .free_string_buffer_and_quit      ; The input ended before the first line break.
-
-    ; Check if the first line has been loaded completely
-    mov         rcx, rax                        ; the number of bytes read
-    lea         rdi, [r11 + r10]                 ; the start of last read chunk
+    jz          .free_string_buffer_and_quit    ; The input ended before the first line break.
+    
+    ; Check if the entire first line has been loaded.
+    mov         rcx, r13                        ; the number of bytes read
+    lea         rdi, [r14 + r12]                ; the start of last read chunk
     mov         al, LINE_BREAK
     repne       scasb
     jz          .extract_rules_from_string_buffer       ; The line break has been found.
 
-    ; Increase the buffer size
-    shl         r10, 1
-
     ; Reallocate the string buffer
     mov         rax, SYS_MREMAP
-    xor         rdi, r11                         ; string buffer address
+    mov         rdi, r14                        ; string buffer address
     mov         rsi, r10                        ; string buffer size
-    mov         rdi, rsi
-    shl         rdi, 1                          ; new size
-    mov         edi, MAP_PRIVATE | MAP_ANONYMOUS
+    mov         rdx, rsi
+    shl         rdx, 1                          ; new size
+    mov         r10, MREMAP_MAYMOVE
     xor         r8,  r8                         ; new address hint
     syscall
     test        rax, rax
-    jz          .free_string_buffer_and_quit
-    mov         r11, rax
+    js          .free_string_buffer_and_quit    ; User space addresses are always positive.
+
+    ; Update the buffer address, size and offset.
+    mov         r14, rax
+    mov         r10, rdx
+    add         r12, r13
 
     jmp .load_initial_string_chunk
 
