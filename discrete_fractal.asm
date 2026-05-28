@@ -41,6 +41,25 @@ ERROR_CODE      equ 1
     test        rax, rax
     js          %1
 %endmacro
+
+; Realloc a block to twice its size.
+; %1 - original address
+; %2 - original size
+; %3 - error jump label
+; %4 - address hint
+%macro realloc 4
+    mov         rax, SYS_MREMAP
+    mov         rdi, %1                         ; original address
+    mov         rsi, %2                         ; original size
+    mov         rdx, rsi
+    shl         rdx, 1                          ; new size
+    mov         r10, MREMAP_MAYMOVE
+    mov         r8, %4
+    syscall
+    test        rax, rax
+    js          %3
+    mov         %1, rax                         ; update address
+    mov         %2, rdx                         ; update size
 %endmacro
 
 ; Read from standard input.
@@ -90,22 +109,10 @@ _start:
     repne       scasb                           ; Try to find the line break.
     jz          .copy_rules_from_string_buffer       ; The line break has been found.
 
-    ; Reallocate the string buffer
-    mov         rax, SYS_MREMAP
-    mov         rdi, r14                        ; original address
-    mov         rsi, r10                        ; original size
-    mov         rdx, rsi
-    shl         rdx, 1                          ; new size
-    mov         r10, MREMAP_MAYMOVE
-    xor         r8,  r8                         ; new address hint
-    syscall
-    test        rax, rax
-    js          .free_string_buffer_and_quit    ; User space addresses are always positive.
+    add         r12, r13                        ; Update the string buffer offset.
 
-    ; Update the string buffer state.
-    mov         r14, rax                        ; address
-    mov         r10, rdx                        ; size
-    add         r12, r13                        ; offset
+    ; Reallocate the string buffer
+    realloc     r14, r10, .free_string_buffer_and_quit, 0
 
     jmp .load_string_chunk
 
