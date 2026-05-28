@@ -70,7 +70,7 @@ _start:
     mov         rcx, r13                        ; the number of bytes read
     lea         rdi, [r14 + r12]                ; the start of last read chunk
     mov         al, LINE_BREAK
-    repne       scasb
+    repne       scasb                           ; TODO: Evaluate the manual alternative.
     jz          .extract_rules_from_string_buffer       ; The line break has been found.
 
     ; Reallocate the string buffer
