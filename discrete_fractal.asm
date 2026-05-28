@@ -32,7 +32,7 @@ _start:
     cmp         rdi, PARAMETER_COUNT
     jnz         .error_exit
 
-    ; Allocate the string buffer
+    ; Allocate string buffer.
     ; TODO: Manage the address hints
     mov         rax, SYS_MMAP
     xor         edi, edi                        ; address hint
@@ -45,7 +45,7 @@ _start:
     cmp         rax, MAP_FAILED
     jz          .error_exit
 
-    ; Initialize the string buffer state
+    ; Initialize the string buffer state.
     mov         r14, rax                        ; base address
     mov         r10, INITIAL_BUFFER_SIZE        ; total size
     xor         r12, r12                        ; current offset
@@ -60,7 +60,7 @@ _start:
     test         rax, rax
     js          .free_string_buffer_and_quit
 
-    ; As of now the register r12 holds a stale value but it will be needed for input processing.
+    ; As of now the r12 register holds a stale value but it will be needed for input processing.
     mov         r13, rax                        ; Save the new number of bytes read.
 
     test        rax, rax
