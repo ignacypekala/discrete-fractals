@@ -26,6 +26,19 @@ LINE_BREAK      equ 10
 PARAMETER_COUNT equ 2                           ; program name + iteration count
 ERROR_CODE      equ 1
 
+%macro malloc 2
+    mov         rax, SYS_MMAP
+    mov         edi, %2                         ; address hint
+    mov         rsi, INITIAL_BUFFER_SIZE
+    mov         edx, PROT_READ | PROT_WRITE
+    mov         r10, MAP_PRIVATE | MAP_ANONYMOUS
+    mov         r8, -1                          ; file descriptor
+    xor         r9, r9                          ; offset
+    syscall
+    cmp         rax, MAP_FAILED
+    jz          %1
+%endmacro
+
 _start:
     ; Validate parameter count.
     pop         rdi
@@ -34,16 +47,7 @@ _start:
 
     ; Allocate string buffer.
     ; TODO: Manage the address hints
-    mov         rax, SYS_MMAP
-    xor         edi, edi                        ; address hint
-    mov         esi, INITIAL_BUFFER_SIZE
-    mov         edx, PROT_READ | PROT_WRITE
-    mov         r10, MAP_PRIVATE | MAP_ANONYMOUS
-    mov         r8, -1                          ; file descriptor
-    xor         r9, r9                          ; offset
-    syscall
-    cmp         rax, MAP_FAILED
-    jz          .error_exit 
+    malloc      .error_exit, 0
 
     ; Initialize the string buffer state.
     mov         r14, rax                        ; base address
@@ -103,16 +107,7 @@ _start:
     mov         r15, rcx                        ; length
 
     ; Allocate rules buffer.
-    mov         rax, SYS_MMAP
-    xor         edi, edi                        ; address hint
-    mov         esi, INITIAL_BUFFER_SIZE
-    mov         edx, PROT_READ | PROT_WRITE
-    mov         r10, MAP_PRIVATE | MAP_ANONYMOUS
-    mov         r8, -1                          ; file descriptor
-    xor         r9, r9                          ; offset
-    syscall
-    cmp         rax, MAP_FAILED
-    jz          .free_string_buffer_and_quit
+    malloc      .free_string_buffer_and_quit, 0
 
     ; Check if there are any preloaded rules to copy.
     cmp         r15, r15
