@@ -42,6 +42,22 @@ ERROR_CODE      equ 1
     jz          %1
 %endmacro
 
+; Read from standard input.
+; %1 - base address
+; %2 - offset
+; %3 - buffer size
+; %4 - read error jump label
+%macro read 4
+    mov         rax, SYS_READ
+    xor         edi, edi                        ; stdin
+    lea         rsi, [%1 + %2]                  ; address
+    mov         rdx, %3
+    sub         rdx, %2                         ; offset
+    syscall
+    test        rax, rax
+    js          %4
+%endmacro
+
 _start:
     ; Validate parameter count.
     pop         rdi
@@ -58,21 +74,13 @@ _start:
     xor         r12, r12                        ; current offset
 
 .load_string_chunk:
-    mov         rax, SYS_READ
-    xor         edi, edi                        ; stdin
-    lea         rsi, [r14 + r12]                ; the free part of the buffer
-    mov         rdx, r10
-    sub         rdx, r12                        ; the size of the empty space
-    syscall
+    read        r14, r12, r10, .free_string_buffer_and_quit
     test        rax, rax
-    js          .free_string_buffer_and_quit
-
-    ; As of now the r12 register holds a stale value - the offst start of the last read.
-    mov         r13, rax                        ; Save the new number of bytes read.
-
-    cmp         rax, rax
     jz          .free_string_buffer_and_quit    ; The input ended before the first line break.
     
+    ; Register r12 holds a stale value - the offset start of the last read.
+    mov         r13, rax                        ; Save the new number of bytes read.
+
     ; Check if the entire first line has been loaded.
     mov         rcx, r13                        ; the number of bytes read
     lea         rdi, [r14 + r12]                ; the start of last read chunk
@@ -130,14 +138,7 @@ _start:
     mov         r13, INITIAL_BUFFER_SIZE
 
 .load_rules_chunk:
-    mov         rax, SYS_READ
-    xor         edi, edi                        ; stdin
-    lea         rsi, [rbp + r15]                ; rules buffer
-    mov         rdx, r13
-    sub         rdx, r15                        ; read size
-    syscall
-    test        rax, rax
-    js          .free_both_buffers_and_quit
+    read        rbp, r15, r13, .free_both_buffers_and_quit
 
     ; TODO Reallocate the buffer
 
