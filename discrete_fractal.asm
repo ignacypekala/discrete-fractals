@@ -38,8 +38,9 @@ ERROR_CODE      equ 1
     mov         r8, -1                          ; file descriptor
     xor         r9, r9                          ; offset
     syscall
-    cmp         rax, MAP_FAILED
-    jz          %1
+    test        rax, rax
+    js          %1
+%endmacro
 %endmacro
 
 ; Read from standard input.
