@@ -43,27 +43,27 @@ _start:
     xor         r9, r9                          ; offset
     syscall
     cmp         rax, MAP_FAILED
-    jz          .error_exit
+    jz          .error_exit 
 
     ; Initialize the string buffer state.
     mov         r14, rax                        ; base address
     mov         r10, INITIAL_BUFFER_SIZE        ; total size
     xor         r12, r12                        ; current offset
 
-.load_initial_string_chunk:
+.load_string_chunk:
     mov         rax, SYS_READ
-    xor         edi, edi                        ; STD_IN
+    xor         edi, edi                        ; stdin
     lea         rsi, [r14 + r12]                ; the free part of the buffer
     mov         rdx, r10
     sub         rdx, r12                        ; the size of the empty space
     syscall
-    test         rax, rax
+    test        rax, rax
     js          .free_string_buffer_and_quit
 
     ; As of now the r12 register holds a stale value - the offst start of the last read.
     mov         r13, rax                        ; Save the new number of bytes read.
 
-    test        rax, rax
+    cmp         rax, rax
     jz          .free_string_buffer_and_quit    ; The input ended before the first line break.
     
     ; Check if the entire first line has been loaded.
@@ -72,7 +72,7 @@ _start:
     mov         al, LINE_BREAK
     ; TODO: Evaluate the manual alternative to repne scasb.
     repne       scasb                           ; Try to find the line break.
-    jz          .extract_rules_from_string_buffer       ; The line break has been found.
+    jz          .copy_rules_from_string_buffer       ; The line break has been found.
 
     ; Reallocate the string buffer
     mov         rax, SYS_MREMAP
@@ -91,10 +91,9 @@ _start:
     mov         r10, rdx                        ; size
     add         r12, r13                        ; offset
 
-    jmp .load_initial_string_chunk
+    jmp .load_string_chunk
 
-.extract_rules_from_string_buffer:
-
+.copy_rules_from_string_buffer:
     ; Update the string buffer offset.
     add         r12, r13                        ; number of bytes read
     sub         r12, rcx                        ; length of preloaded rules
@@ -115,23 +114,45 @@ _start:
     cmp         rax, MAP_FAILED
     jz          .free_string_buffer_and_quit
 
+    ; Check if there are any preloaded rules to copy.
+    cmp         r15, r15
+    jz          .load_rules_chunk
+
     ; Copy the first batch of rules from the string buffer.
     mov         rcx, r15                        ; length
-    mov         rsi, r13                        ; string buffer
+    mov         rsi, r14                        ; string buffer
     mov         rdi, rax                        ; rules buffer
     rep         movsb
 
+    ; Rules buffer state:
+    ;   rbp - base address
+    ;   r13 - total size
+    ;   r15 - current offset
+    mov         rbp, rax
+    mov         r13, INITIAL_BUFFER_SIZE
 
-.load_remaining_rules:
-    ; TODO: Load remaining rules.
+.load_rules_chunk:
+    mov         rax, SYS_READ
+    xor         edi, edi                        ; stdin
+    lea         rsi, [rbp + r15]                ; rules buffer
+    mov         rdx, r13
+    sub         rdx, r15                        ; read size
+    syscall
+    test        rax, rax
+    js          .free_both_buffers_and_quit
+
+    ; TODO Reallocate the buffer
 
     mov         eax, SYS_EXIT
     xor         edi, edi
     syscall
 
+.free_both_buffers_and_quit:
+    ; TODO: Free the rules buffer.
+
 .free_string_buffer_and_quit:
     ; TODO: Free the input buffer.
-    
+
 .error_exit:
     mov         eax, SYS_EXIT
     mov         edi, ERROR_CODE
