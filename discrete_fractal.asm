@@ -60,7 +60,7 @@ _start:
     test         rax, rax
     js          .free_string_buffer_and_quit
 
-    ; As of now the r12 register holds a stale value but it will be needed for input processing.
+    ; As of now the r12 register holds a stale value - the offst start of the last read.
     mov         r13, rax                        ; Save the new number of bytes read.
 
     test        rax, rax
@@ -70,13 +70,14 @@ _start:
     mov         rcx, r13                        ; the number of bytes read
     lea         rdi, [r14 + r12]                ; the start of last read chunk
     mov         al, LINE_BREAK
-    repne       scasb                           ; TODO: Evaluate the manual alternative.
+    ; TODO: Evaluate the manual alternative to repne scasb.
+    repne       scasb                           ; Try to find the line break.
     jz          .extract_rules_from_string_buffer       ; The line break has been found.
 
     ; Reallocate the string buffer
     mov         rax, SYS_MREMAP
-    mov         rdi, r14                        ; string buffer address
-    mov         rsi, r10                        ; string buffer size
+    mov         rdi, r14                        ; original address
+    mov         rsi, r10                        ; original size
     mov         rdx, rsi
     shl         rdx, 1                          ; new size
     mov         r10, MREMAP_MAYMOVE
@@ -85,18 +86,24 @@ _start:
     test        rax, rax
     js          .free_string_buffer_and_quit    ; User space addresses are always positive.
 
-    ; Update the buffer address, size and offset.
-    mov         r14, rax
-    mov         r10, rdx
-    add         r12, r13
+    ; Update the string buffer state.
+    mov         r14, rax                        ; address
+    mov         r10, rdx                        ; size
+    add         r12, r13                        ; offset
 
     jmp .load_initial_string_chunk
 
 .extract_rules_from_string_buffer:
-    ; rdi holds the address of the first byte of the rules (provided there are any).
-    ; rcx holds the length of the loaded rules.
 
-    ; Allocate the rules buffer
+    ; Update the string buffer offset.
+    add         r12, r13                        ; number of bytes read
+    sub         r12, rcx                        ; length of preloaded rules
+
+    ; Save the preloaded rules info.
+    mov         r13, rdi                        ; start offset
+    mov         r15, rcx                        ; length
+
+    ; Allocate rules buffer.
     mov         rax, SYS_MMAP
     xor         edi, edi                        ; address hint
     mov         esi, INITIAL_BUFFER_SIZE
@@ -108,15 +115,22 @@ _start:
     cmp         rax, MAP_FAILED
     jz          .free_string_buffer_and_quit
 
+    ; Copy the first batch of rules from the string buffer.
+    mov         rcx, r15                        ; length
+    mov         rsi, r13                        ; string buffer
+    mov         rdi, rax                        ; rules buffer
+    rep         movsb
+
+
 .load_remaining_rules:
-    ; TODO: Load remaining rules
+    ; TODO: Load remaining rules.
 
     mov         eax, SYS_EXIT
     xor         edi, edi
     syscall
 
 .free_string_buffer_and_quit:
-    ; TODO: Free the input buffer
+    ; TODO: Free the input buffer.
     
 .error_exit:
     mov         eax, SYS_EXIT
