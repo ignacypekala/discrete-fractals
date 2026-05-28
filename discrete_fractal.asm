@@ -26,6 +26,9 @@ LINE_BREAK      equ 10
 PARAMETER_COUNT equ 2                           ; program name + iteration count
 ERROR_CODE      equ 1
 
+; Allocate a block of memory.
+; %1 - error jump label
+; %2 - address hint
 %macro malloc 2
     mov         rax, SYS_MMAP
     mov         edi, %2                         ; address hint
