@@ -1,49 +1,49 @@
 global _start
 
-SYS_EXIT        equ 60
-SYS_READ        equ 0
-SYS_BRK         equ 12
-SYS_MMAP        equ 9
-SYS_MREMAP      equ 25
+SYS_EXIT                equ 60
+SYS_READ                equ 0
+SYS_BRK                 equ 12
+SYS_MMAP                equ 9
+SYS_MREMAP              equ 25
 
-PROT_READ       equ 0x1
-PROT_WRITE      equ 0x2
-MAP_PRIVATE     equ 0x02
-MAP_ANONYMOUS   equ 0x20
-MREMAP_MAYMOVE  equ 0x1
+PROT_READ               equ 0x1
+PROT_WRITE              equ 0x2
+MAP_PRIVATE             equ 0x02
+MAP_ANONYMOUS           equ 0x20
+MREMAP_MAYMOVE          equ 0x1
 
-READ_ERROR      equ -1
-MAP_FAILED      equ -1
-EOF             equ 0
+READ_ERROR              equ -1
+MAP_FAILED              equ -1
+EOF                     equ 0
 
-STD_IN          equ 0
-STD_OUT         equ 1
+STD_IN                  equ 0
+STD_OUT                 equ 1
 
-LINE_BREAK      equ 10
-ASCII_START     equ 33
-ASCII_END       equ 126
+LINE_BREAK              equ 10
+ASCII_START             equ 33
+ASCII_END               equ 126
 
 INITIAL_BUFFER_SIZE             equ 4096
-RULE_REGISTRY_ENTRY_SIZE        equ 16          ; base pointer + rule length
+RULE_REGISTRY_ENTRY_SIZE        equ 16                  ; base pointer + rule length
 RULE_REGISTRY_TOTAL_SIZE        equ (ASCII_END - ASCII_START) * RULE_REGISTRY_ENTRY_SIZE
 
-PARAMETER_COUNT equ 2                           ; program name + iteration count
-ERROR_CODE      equ 1
+PARAMETER_COUNT         equ 2                           ; program name + iteration count
+ERROR_CODE              equ 1
 
 ; Allocate a block of memory.
 ; %1 - error jump label
 ; %2 - address hint
 %macro MALLOC 2
-    mov         rax, SYS_MMAP
-    mov         edi, %2                         ; address hint
-    mov         rsi, INITIAL_BUFFER_SIZE
-    mov         edx, PROT_READ | PROT_WRITE
-    mov         r10, MAP_PRIVATE | MAP_ANONYMOUS
-    mov         r8, -1                          ; file descriptor
-    xor         r9, r9                          ; offset
+    mov                 rax, SYS_MMAP
+    mov                 edi, %2                         ; address hint
+    mov                 rsi, INITIAL_BUFFER_SIZE
+    mov                 edx, PROT_READ | PROT_WRITE
+    mov                 r10, MAP_PRIVATE | MAP_ANONYMOUS
+    mov                 r8, -1                          ; file descriptor
+    xor                 r9, r9                          ; offset
     syscall
-    test        rax, rax
-    js          %1
+    test            rax, rax
+    js                  %1
 %endmacro
 
 ; Reallocates a block of memory to twice its size. Updates the base address on success.
@@ -52,18 +52,18 @@ ERROR_CODE      equ 1
 ; %3 - error jump label
 ; %4 - address hint
 %macro REALLOC 4
-    mov         rax, SYS_MREMAP
-    mov         rdi, %1                         ; original address
-    mov         rsi, %2                         ; original size
-    mov         rdx, rsi
-    shl         rdx, 1                          ; new size
-    mov         r10, MREMAP_MAYMOVE
-    mov         r8, %4
+    mov                 rax, SYS_MREMAP
+    mov                 rdi, %1                         ; original address
+    mov                 rsi, %2                         ; original size
+    mov                 rdx, rsi
+    shl                 rdx, 1                          ; new size
+    mov                 r10, MREMAP_MAYMOVE
+    mov                 r8, %4
     syscall
-    test        rax, rax
-    js          %3
-    mov         %1, rax                         ; update address
-    mov         %2, rdx                         ; update size
+    test                rax, rax
+    js                  %3
+    mov                 %1, rax                         ; update address
+    mov                 %2, rdx                         ; update size
 %endmacro
 
 ; Read from standard input.
@@ -72,14 +72,14 @@ ERROR_CODE      equ 1
 ; %3 - buffer size
 ; %4 - read error jump label
 %macro READ 4
-    mov         rax, SYS_READ
-    xor         edi, edi                        ; stdin
-    lea         rsi, [%1 + %2]                  ; address
-    mov         rdx, %3
-    sub         rdx, %2                         ; offset
+    mov                 rax, SYS_READ
+    xor                 edi, edi                        ; stdin
+    lea                 rsi, [%1 + %2]                  ; address
+    mov                 rdx, %3
+    sub                 rdx, %2                         ; offset
     syscall
-    test        rax, rax
-    js          %4
+    test                rax, rax
+    js                  %4
 %endmacro
 
 ; Scan a buffer to find the first occurance of a line break. In the process ensure all of the
@@ -91,122 +91,122 @@ ERROR_CODE      equ 1
 ; %3 - read length limit
 ; %4 - invalid character jump label
 %macro SCAN_LINE 4
-    lea         rcx, [%1 + %2]                  ; start pointer
-    lea         r11, [%1 + %3]                  ; end pointer
-    xor         eax, eax                        ; clear al
+    lea                 rcx, [%1 + %2]                  ; start pointer
+    lea                 r11, [%1 + %3]                  ; end pointer
+    xor                 eax, eax                        ; clear al
 
 %%scan_character:
-    cmp         rcx, r11
-    jz          %%return                        ; eof
+    cmp                 rcx, r11
+    jz                  %%return                        ; eof
 
-    mov         al, [rcx]                       ; byte to check
-    cmp         al, LINE_BREAK
-    je          %%return                        ; line break found
-    cmp         al, ASCII_START
-    jb          %4                              ; invalid character
-    cmp         al, ASCII_END
-    ja          %4                              ; invalid character
+    mov                 al, [rcx]                       ; byte to check
+    cmp                 al, LINE_BREAK
+    je                  %%return                        ; line break found
+    cmp                 al, ASCII_START
+    jb                  %4                              ; invalid character
+    cmp                 al, ASCII_END
+    ja                  %4                              ; invalid character
 
-    inc         rcx
-    jmp         %%scan_character
+    inc                 rcx
+    jmp                 %%scan_character
 
 %%return:
     ; Convert the line break pointer to its position relative to the offset.
-    sub         rcx, %1
-    sub         rcx, %2
+    sub                 rcx, %1
+    sub                 rcx, %2
 %endmacro
 
 _start:
     ; Validate parameter count.
-    pop         rdi
-    cmp         rdi, PARAMETER_COUNT
-    jnz         .error_exit
+    pop                 rdi
+    cmp                 rdi, PARAMETER_COUNT
+    jnz                 .error_exit
 
     ; Allocate string buffer.
     ; TODO: Manage the address hints
-    MALLOC      .error_exit, 0
+    MALLOC              .error_exit, 0
 
     ; Initialize the string buffer state.
-    mov         rbp, rax                        ; base address
-    mov         r14, INITIAL_BUFFER_SIZE        ; total size
-    xor         r12, r12                        ; current offset
+    mov                 rbp, rax                        ; base address
+    mov                 r14, INITIAL_BUFFER_SIZE        ; total size
+    xor                 r12, r12                        ; current offset
 
 .load_string_chunk:
-    READ        rbp, r12, r14, .free_string_buffer_and_quit
-    test        rax, rax
-    jz          .free_string_buffer_and_quit    ; The input ended before the first line break.
+    READ                rbp, r12, r14, .free_string_buffer_and_quit
+    test                rax, rax
+    jz                  .free_string_buffer_and_quit    ; The input ended before the first line break.
     
     ; Register r12 holds a stale value - the offset start of the last read.
-    mov         r13, rax                        ; Save the new number of bytes read.
+    mov                 r13, rax                        ; Save the new number of bytes read.
 
     ; Check if the entire first line has been loaded.
-    SCAN_LINE   rbp, r12, r13, .free_string_buffer_and_quit
-    cmp         al, LINE_BREAK
-    je          .copy_rules_from_string_buffer  ; line break found
+    SCAN_LINE           rbp, r12, r13, .free_string_buffer_and_quit
+    cmp                 al, LINE_BREAK
+    je                  .copy_rules_from_string_buffer  ; line break found
 
-    add         r12, r13                        ; Update the string buffer offset.
+    add                 r12, r13                        ; Update the string buffer offset.
 
     ; Reallocate the string buffer
-    REALLOC     rbp, r14, .free_string_buffer_and_quit, 0
+    REALLOC             rbp, r14, .free_string_buffer_and_quit, 0
 
-    jmp .load_string_chunk
+    jmp                 .load_string_chunk
 
 .copy_rules_from_string_buffer:
     ; rcx - the number of bytes from the very last read, which are a part of the first line.
 
     ; Update the string buffer offset.
-    add         r12, rcx
+    add                 r12, rcx
 
     ; Save the preloaded rules info.
-    mov         r15, r13
-    sub         r15, rcx                        ; length
-    mov         r15, r14                        ; string buffer size
+    mov                 r15, r13
+    sub                 r15, rcx                        ; length
+    mov                 r15, r14                        ; string buffer size
 
     ; Allocate rules buffer.
-    MALLOC      .free_string_buffer_and_quit, 0
+    MALLOC              .free_string_buffer_and_quit, 0
 
     ; Check if there are any preloaded rules to copy.
-    cmp         r15, r15
-    jz          .load_rules_chunk
+    cmp                 r15, r15
+    jz                  .load_rules_chunk
 
     ; Copy the first batch of rules from the string buffer.
-    mov         rcx, r15                        ; length
-    mov         rsi, rbp                        ; string buffer
-    mov         rdi, rax                        ; rules buffer
-    rep         movsb
+    mov                 rcx, r15                        ; length
+    mov                 rsi, rbp                        ; string buffer
+    mov                 rdi, rax                        ; rules buffer
+    rep                 movsb
 
     ; rules buffer state:
     ;   rbp - base address
     ;   r13 - total size
     ;   r15 - current offset
-    mov         rbp, rax
-    mov         r13, INITIAL_BUFFER_SIZE
+    mov                 rbp, rax
+    mov                 r13, INITIAL_BUFFER_SIZE
 
 .load_rules_chunk:
-    READ        rbp, r13, r15, .free_both_buffers_and_quit
-    test        rax, rax
-    jz          .build_rules_registry           ; all rules loaded
-    add         r13, rax                        ; move the offset
+    READ                rbp, r13, r15, .free_both_buffers_and_quit
+    test                rax, rax
+    jz                  .build_rules_registry           ; all rules loaded
+    add                 r13, rax                        ; move the offset
 
     ; There are still rules remaining.
-    REALLOC     rbp, r13, .free_both_buffers_and_quit, 0
-    jmp .load_rules_chunk
+    REALLOC             rbp, r13, .free_both_buffers_and_quit, 0
+    jmp                 .load_rules_chunk
 
 .build_rules_registry:
-    xor         rdx, rdx                        ; iteration offset
+    xor                 rdx, rdx                        ; iteration offset
 
 .register_rule:
-    SCAN_LINE   rbp, rdx, r15, .free_both_buffers_and_quit
-    cmp         al, LINE_BREAK
-    jnz         .free_both_buffers_and_quit     ; unterminated line
-    mov         al, [rdx]                       ; rule character
-    sub         rsp, RULE_REGISTRY_ENTRY_SIZE
-    mov         rsp, rdx                        ; base pointer
-    mov         [rsp + 8], rcx                  ; length
-    jmp         .register_rule
+    SCAN_LINE           rbp, rdx, r15, .free_both_buffers_and_quit
+    cmp                 al, LINE_BREAK
+    jnz                 .free_both_buffers_and_quit     ; unterminated line
+    mov                 al, [rdx]                       ; rule character
+    sub                 rsp, RULE_REGISTRY_ENTRY_SIZE
+    mov                 rsp, rdx                        ; base pointer
+    mov                 [rsp + 8], rcx                  ; length
+    jmp                 .register_rule
 
-    mov         eax, SYS_EXIT
-    xor         edi, edi
+    mov                 eax, SYS_EXIT
+    xor                 edi, edi
     syscall
 
 .free_both_buffers_and_quit:
@@ -216,6 +216,6 @@ _start:
     ; TODO: Free the input buffer.
 
 .error_exit:
-    mov         eax, SYS_EXIT
-    mov         edi, ERROR_CODE
+    mov                 eax, SYS_EXIT
+    mov                 edi, ERROR_CODE
     syscall
