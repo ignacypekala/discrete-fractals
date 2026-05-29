@@ -89,12 +89,12 @@ _start:
     malloc      .error_exit, 0
 
     ; Initialize the string buffer state.
-    mov         r14, rax                        ; base address
-    mov         r10, INITIAL_BUFFER_SIZE        ; total size
+    mov         rbp, rax                        ; base address
+    mov         r14, INITIAL_BUFFER_SIZE        ; total size
     xor         r12, r12                        ; current offset
 
 .load_string_chunk:
-    read        r14, r12, r10, .free_string_buffer_and_quit
+    read        rbp, r12, r14, .free_string_buffer_and_quit
     test        rax, rax
     jz          .free_string_buffer_and_quit    ; The input ended before the first line break.
     
@@ -103,7 +103,7 @@ _start:
 
     ; Check if the entire first line has been loaded.
     mov         rcx, r13                        ; the number of bytes read
-    lea         rdi, [r14 + r12]                ; the start of last read chunk
+    lea         rdi, [rbp + r12]                ; the start of last read chunk
     mov         al, LINE_BREAK
     ; TODO: Evaluate the manual alternative to repne scasb.
     repne       scasb                           ; Try to find the line break.
@@ -112,7 +112,7 @@ _start:
     add         r12, r13                        ; Update the string buffer offset.
 
     ; Reallocate the string buffer
-    realloc     r14, r10, .free_string_buffer_and_quit, 0
+    realloc     rbp, r14, .free_string_buffer_and_quit, 0
 
     jmp .load_string_chunk
 
@@ -134,11 +134,11 @@ _start:
 
     ; Copy the first batch of rules from the string buffer.
     mov         rcx, r15                        ; length
-    mov         rsi, r14                        ; string buffer
+    mov         rsi, rbp                        ; string buffer
     mov         rdi, rax                        ; rules buffer
     rep         movsb
 
-    ; Rules buffer state:
+    ; rules buffer state:
     ;   rbp - base address
     ;   r13 - total size
     ;   r15 - current offset
@@ -147,6 +147,14 @@ _start:
 
 .load_rules_chunk:
     read        rbp, r15, r13, .free_both_buffers_and_quit
+    test        rax, rax
+    jz          .index_rules                    ; all rules loaded
+    add         r13, rax                        ; move the offset
+
+    ; There are still rules remaining.
+    realloc     rbp, r13, .free_both_buffers_and_quit, 0
+    jmp .load_rules_chunk
+
 
     ; TODO Reallocate the buffer
 
