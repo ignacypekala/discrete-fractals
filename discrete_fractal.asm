@@ -116,6 +116,20 @@ ERROR_CODE              equ 1
     sub                 rcx, %2
 %endmacro
 
+section .bss
+
+string_buffer_pointer:  resq 1
+string_buffer_size:     resq 1
+string_buffer_offset:   resq 1
+
+rules_buffer_pointer:   resq 1
+rules_buffer_size:      resq 1
+rules_buffer_offset:    resq 1
+
+rules_registry:         resb RULE_REGISTRY_TOTAL_SIZE
+
+section .text
+
 _start:
     ; Validate parameter count.
     pop                 rdi
@@ -160,14 +174,13 @@ _start:
     ; Save the preloaded rules info.
     mov                 r15, r13
     sub                 r15, rcx                        ; length
-    mov                 r15, r14                        ; string buffer size
 
     ; Allocate rules buffer.
     MALLOC              .free_string_buffer_and_quit, 0
 
     ; Check if there are any preloaded rules to copy.
     cmp                 r15, r15
-    jz                  .load_rules_chunk
+    jz                  .load_rules
 
     ; Copy the first batch of rules from the string buffer.
     mov                 rcx, r15                        ; length
@@ -175,28 +188,29 @@ _start:
     mov                 rdi, rax                        ; rules buffer
     rep                 movsb
 
+.load_rules:
     ; rules buffer state:
-    ;   rbp - base address
+    ;   rbx - base address
     ;   r13 - total size
     ;   r15 - current offset
-    mov                 rbp, rax
+    mov                 rbx, rax
     mov                 r13, INITIAL_BUFFER_SIZE
 
 .load_rules_chunk:
-    READ                rbp, r13, r15, .free_both_buffers_and_quit
+    READ                rbx, r13, r15, .free_both_buffers_and_quit
     test                rax, rax
     jz                  .build_rules_registry           ; all rules loaded
     add                 r13, rax                        ; move the offset
 
     ; There are still rules remaining.
-    REALLOC             rbp, r13, .free_both_buffers_and_quit, 0
+    REALLOC             rbx, r13, .free_both_buffers_and_quit, 0
     jmp                 .load_rules_chunk
 
 .build_rules_registry:
     xor                 rdx, rdx                        ; iteration offset
 
 .register_rule:
-    SCAN_LINE           rbp, rdx, r15, .free_both_buffers_and_quit
+    SCAN_LINE           rbx, rdx, r15, .free_both_buffers_and_quit
     cmp                 al, LINE_BREAK
     jnz                 .free_both_buffers_and_quit     ; unterminated line
     mov                 al, [rdx]                       ; rule character
@@ -211,9 +225,11 @@ _start:
 
 .free_both_buffers_and_quit:
     ; TODO: Free the rules buffer.
+    nop
 
 .free_string_buffer_and_quit:
     ; TODO: Free the input buffer.
+    nop
 
 .error_exit:
     mov                 eax, SYS_EXIT
