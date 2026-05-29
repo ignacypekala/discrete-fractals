@@ -29,7 +29,7 @@ ERROR_CODE      equ 1
 ; Allocate a block of memory.
 ; %1 - error jump label
 ; %2 - address hint
-%macro malloc 2
+%macro MALLOC 2
     mov         rax, SYS_MMAP
     mov         edi, %2                         ; address hint
     mov         rsi, INITIAL_BUFFER_SIZE
@@ -47,7 +47,7 @@ ERROR_CODE      equ 1
 ; %2 - original size
 ; %3 - error jump label
 ; %4 - address hint
-%macro realloc 4
+%macro REALLOC 4
     mov         rax, SYS_MREMAP
     mov         rdi, %1                         ; original address
     mov         rsi, %2                         ; original size
@@ -67,7 +67,7 @@ ERROR_CODE      equ 1
 ; %2 - offset
 ; %3 - buffer size
 ; %4 - read error jump label
-%macro read 4
+%macro READ 4
     mov         rax, SYS_READ
     xor         edi, edi                        ; stdin
     lea         rsi, [%1 + %2]                  ; address
@@ -86,7 +86,7 @@ _start:
 
     ; Allocate string buffer.
     ; TODO: Manage the address hints
-    malloc      .error_exit, 0
+    MALLOC      .error_exit, 0
 
     ; Initialize the string buffer state.
     mov         rbp, rax                        ; base address
@@ -94,7 +94,7 @@ _start:
     xor         r12, r12                        ; current offset
 
 .load_string_chunk:
-    read        rbp, r12, r14, .free_string_buffer_and_quit
+    READ        rbp, r12, r14, .free_string_buffer_and_quit
     test        rax, rax
     jz          .free_string_buffer_and_quit    ; The input ended before the first line break.
     
@@ -112,7 +112,7 @@ _start:
     add         r12, r13                        ; Update the string buffer offset.
 
     ; Reallocate the string buffer
-    realloc     rbp, r14, .free_string_buffer_and_quit, 0
+    REALLOC     rbp, r14, .free_string_buffer_and_quit, 0
 
     jmp .load_string_chunk
 
@@ -126,7 +126,7 @@ _start:
     mov         r15, rcx                        ; length
 
     ; Allocate rules buffer.
-    malloc      .free_string_buffer_and_quit, 0
+    MALLOC      .free_string_buffer_and_quit, 0
 
     ; Check if there are any preloaded rules to copy.
     cmp         r15, r15
@@ -146,13 +146,13 @@ _start:
     mov         r13, INITIAL_BUFFER_SIZE
 
 .load_rules_chunk:
-    read        rbp, r15, r13, .free_both_buffers_and_quit
+    READ        rbp, r15, r13, .free_both_buffers_and_quit
     test        rax, rax
     jz          .index_rules                    ; all rules loaded
     add         r13, rax                        ; move the offset
 
     ; There are still rules remaining.
-    realloc     rbp, r13, .free_both_buffers_and_quit, 0
+    REALLOC     rbp, r13, .free_both_buffers_and_quit, 0
     jmp .load_rules_chunk
 
 
