@@ -23,8 +23,9 @@ LINE_BREAK      equ 10
 ASCII_START     equ 33
 ASCII_END       equ 126
 
-INITIAL_BUFFER_SIZE    equ 4096
-RULE_INDEX_SIZE        equ (ASCII_START - ASCII_END) * 18
+INITIAL_BUFFER_SIZE             equ 4096
+RULE_REGISTRY_ENTRY_SIZE        equ 16          ; base pointer + rule length
+RULE_REGISTRY_TOTAL_SIZE        equ (ASCII_END - ASCII_START) * RULE_REGISTRY_ENTRY_SIZE
 
 PARAMETER_COUNT equ 2                           ; program name + iteration count
 ERROR_CODE      equ 1
@@ -184,15 +185,25 @@ _start:
 .load_rules_chunk:
     READ        rbp, r13, r15, .free_both_buffers_and_quit
     test        rax, rax
-    jz          .index_rules                    ; all rules loaded
+    jz          .build_rules_registry           ; all rules loaded
     add         r13, rax                        ; move the offset
 
     ; There are still rules remaining.
     REALLOC     rbp, r13, .free_both_buffers_and_quit, 0
     jmp .load_rules_chunk
 
-.index_rules:
-    sub         rsp, RULE_INDEX_SIZE
+.build_rules_registry:
+    xor         rdx, rdx                        ; iteration offset
+
+.register_rule:
+    SCAN_LINE   rbp, rdx, r15, .free_both_buffers_and_quit
+    cmp         al, LINE_BREAK
+    jnz         .free_both_buffers_and_quit     ; unterminated line
+    mov         al, [rdx]                       ; rule character
+    sub         rsp, RULE_REGISTRY_ENTRY_SIZE
+    mov         rsp, rdx                        ; base pointer
+    mov         [rsp + 8], rcx                  ; length
+    jmp         .register_rule
 
     mov         eax, SYS_EXIT
     xor         edi, edi
