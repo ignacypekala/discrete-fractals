@@ -95,6 +95,8 @@ _start:
 
 .load_string_chunk:
     read        r14, r12, r10, .free_string_buffer_and_quit
+    test        rax, rax
+    jz          .free_string_buffer_and_quit    ; The input ended before the first line break.
     
     ; Register r12 holds a stale value - the offset start of the last read.
     mov         r13, rax                        ; Save the new number of bytes read.
