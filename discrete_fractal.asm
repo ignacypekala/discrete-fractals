@@ -31,8 +31,8 @@ PARAMETER_COUNT         equ 2                           ; program name + iterati
 ERROR_CODE              equ 1
 
 ; Allocate a block of memory.
-; %1 - error jump label
-; %2 - address hint
+;  %1 - error jump label
+;  %2 - address hint
 %macro MALLOC 2
     mov                 rax, SYS_MMAP
     mov                 edi, %2                         ; address hint
@@ -47,10 +47,10 @@ ERROR_CODE              equ 1
 %endmacro
 
 ; Reallocates a block of memory to twice its size. Updates the base address on success.
-; %1 - original address
-; %2 - original size
-; %3 - error jump label
-; %4 - address hint
+;  %1 - original address
+;  %2 - original size
+;  %3 - error jump label
+;  %4 - address hint
 %macro REALLOC 4
     mov                 rax, SYS_MREMAP
     mov                 rdi, %1                         ; original address
@@ -67,10 +67,10 @@ ERROR_CODE              equ 1
 %endmacro
 
 ; Read from standard input.
-; %1 - base address
-; %2 - offset
-; %3 - buffer size
-; %4 - read error jump label
+;  %1 - base address
+;  %2 - offset
+;  %3 - buffer size
+;  %4 - read error jump label
 %macro READ 4
     mov                 rax, SYS_READ
     xor                 edi, edi                        ; stdin
@@ -86,10 +86,10 @@ ERROR_CODE              equ 1
 ; characters are in the allowed range. Overwrites rcx, rax and r11. The position of the
 ; linebreak relative to the designated offset is stored in rcx. If the line break was found register
 ; al contains a line break.
-; %1 - base address
-; %2 - offset
-; %3 - read length limit
-; %4 - invalid character jump label
+;  %1 - base address
+;  %2 - offset
+;  %3 - read length limit
+;  %4 - invalid character jump label
 %macro SCAN_LINE 4
     lea                 rcx, [%1 + %2]                  ; start pointer
     lea                 r11, [%1 + %3]                  ; end pointer
