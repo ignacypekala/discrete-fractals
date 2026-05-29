@@ -19,9 +19,12 @@ EOF             equ 0
 STD_IN          equ 0
 STD_OUT         equ 1
 
-INITIAL_BUFFER_SIZE         equ 4096
-
 LINE_BREAK      equ 10
+ASCII_START     equ 33
+ASCII_END       equ 126
+
+INITIAL_BUFFER_SIZE    equ 4096
+RULE_INDEX_SIZE        equ (ASCII_START - ASCII_END) * 18
 
 PARAMETER_COUNT equ 2                           ; program name + iteration count
 ERROR_CODE      equ 1
@@ -78,6 +81,40 @@ ERROR_CODE      equ 1
     js          %4
 %endmacro
 
+; Scan a buffer to find the first occurance of a line break. In the process ensure all of the
+; characters are in the allowed range. Overwrites rcx, rax and r11. The position of the
+; linebreak relative to the designated offset is stored in rcx. If the line break was found register
+; al contains a line break.
+; %1 - base address
+; %2 - offset
+; %3 - read length limit
+; %4 - invalid character jump label
+%macro SCAN_LINE 4
+    lea         rcx, [%1 + %2]                  ; start pointer
+    lea         r11, [%1 + %3]                  ; end pointer
+    xor         eax, eax                        ; clear al
+
+%%scan_character:
+    cmp         rcx, r11
+    jz          %%return                        ; eof
+
+    mov         al, [rcx]                       ; byte to check
+    cmp         al, LINE_BREAK
+    je          %%return                        ; line break found
+    cmp         al, ASCII_START
+    jb          %4                              ; invalid character
+    cmp         al, ASCII_END
+    ja          %4                              ; invalid character
+
+    inc         rcx
+    jmp         %%scan_character
+
+%%return:
+    ; Convert the line break pointer to its position relative to the offset.
+    sub         rcx, %1
+    sub         rcx, %2
+%endmacro
+
 _start:
     ; Validate parameter count.
     pop         rdi
@@ -102,12 +139,9 @@ _start:
     mov         r13, rax                        ; Save the new number of bytes read.
 
     ; Check if the entire first line has been loaded.
-    mov         rcx, r13                        ; the number of bytes read
-    lea         rdi, [rbp + r12]                ; the start of last read chunk
-    mov         al, LINE_BREAK
-    ; TODO: Evaluate the manual alternative to repne scasb.
-    repne       scasb                           ; Try to find the line break.
-    jz          .copy_rules_from_string_buffer       ; The line break has been found.
+    SCAN_LINE   rbp, r12, r13, .free_string_buffer_and_quit
+    cmp         al, LINE_BREAK
+    je          .copy_rules_from_string_buffer  ; line break found
 
     add         r12, r13                        ; Update the string buffer offset.
 
@@ -117,13 +151,15 @@ _start:
     jmp .load_string_chunk
 
 .copy_rules_from_string_buffer:
+    ; rcx - the number of bytes from the very last read, which are a part of the first line.
+
     ; Update the string buffer offset.
-    add         r12, r13                        ; number of bytes read
-    sub         r12, rcx                        ; length of preloaded rules
+    add         r12, rcx
 
     ; Save the preloaded rules info.
-    mov         r13, rdi                        ; start offset
-    mov         r15, rcx                        ; length
+    mov         r15, r13
+    sub         r15, rcx                        ; length
+    mov         r15, r14                        ; string buffer size
 
     ; Allocate rules buffer.
     MALLOC      .free_string_buffer_and_quit, 0
@@ -146,7 +182,7 @@ _start:
     mov         r13, INITIAL_BUFFER_SIZE
 
 .load_rules_chunk:
-    READ        rbp, r15, r13, .free_both_buffers_and_quit
+    READ        rbp, r13, r15, .free_both_buffers_and_quit
     test        rax, rax
     jz          .index_rules                    ; all rules loaded
     add         r13, rax                        ; move the offset
@@ -155,8 +191,8 @@ _start:
     REALLOC     rbp, r13, .free_both_buffers_and_quit, 0
     jmp .load_rules_chunk
 
-
-    ; TODO Reallocate the buffer
+.index_rules:
+    sub         rsp, RULE_INDEX_SIZE
 
     mov         eax, SYS_EXIT
     xor         edi, edi
