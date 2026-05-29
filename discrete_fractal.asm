@@ -42,7 +42,7 @@ ERROR_CODE      equ 1
     js          %1
 %endmacro
 
-; Realloc a block to twice its size.
+; Reallocates a block of memory to twice its size. Updates the base address on success.
 ; %1 - original address
 ; %2 - original size
 ; %3 - error jump label
