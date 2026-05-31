@@ -75,8 +75,7 @@ ERROR_CODE              equ 1
 ;  rsi - original size
 ;  rdx - new size (%2 * 2)
 ;  r10 - mremap flags
-;  r8  - address hint (%4)
-;  rcx, r11 - clobbered by the hardware syscall instruction
+;  rcx, r11 - clobbered by syscall
 ;
 %macro REALLOC 4
     mov                 rax, SYS_MREMAP
@@ -85,7 +84,6 @@ ERROR_CODE              equ 1
     mov                 rdx, rsi
     shl                 rdx, 1                          ; new size
     mov                 r10, MREMAP_MAYMOVE
-    mov                 r8, %4
     syscall
     test                rax, rax
     js                  %3
