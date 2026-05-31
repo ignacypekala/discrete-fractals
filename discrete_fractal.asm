@@ -209,7 +209,7 @@ _start:
     
     ; For now, register r14 will hold a stale value - the offset of the beginning of the last read.
     ; Note: r15 temporarily holds the last read size, violating its declared purpose. It will enter a
-    ; legal state right before building the rules registry.
+    ; legal state before building the rules buffer.
     mov                 r15, rax
 
     ; Check if the entire first line has been loaded.
