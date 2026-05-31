@@ -180,7 +180,9 @@ section .text
 
 ;
 ; Registers:
-;  rax, rdi, rsi, rdx, r10, r8, r9 - syscall parameters and localized scratch registers
+;  Volatile:
+;   rax, rdi, rsi, rdx, r10, r8, r9 - syscall parameters or localized scratchpads
+;   rcx, r11 - localized scratchpads often clobbered by syscalls
 ;  Buffer states:
 ;   rbp, rbx - base pointers
 ;   r12, r13 - total sizes
@@ -205,8 +207,9 @@ _start:
 .load_string_chunk:
     READ                rbp, r14, r12, .free_string_buffer_and_quit
     
-    ; For now register r14 will hold a stale value - the offset of the beginning of the last read.
-    ; The size of the last read will be stored in r15, temporarily bending the declared puprose.
+    ; For now, register r14 will hold a stale value - the offset of the beginning of the last read.
+    ; Note: r15 temporarily holds the last read size, violating its declared purpose. It will enter a
+    ; legal state right before building the rules registry.
     mov                 r15, rax
 
     ; Check if the entire first line has been loaded.
@@ -219,7 +222,7 @@ _start:
     cmp                 r15, rdx
     jb                  .free_string_buffer_and_quit    ; The input ended before the first line break.
 
-    ; Reallocate the string buffer
+    ; Reallocate the string buffer.
     REALLOC             rbp, r12, .free_string_buffer_and_quit
 
     jmp                 .load_string_chunk
@@ -254,7 +257,7 @@ _start:
 
 .load_rules_chunk:
     READ                rbx, r15, r13, .free_both_buffers_and_quit
-    add                 r15, rax                        ; move the offset
+    add                 r15, rax                        ; Move the offset.
     cmp                 rax, rdx
     jbe                 .build_rules_registry           ; all rules loaded
 
@@ -276,7 +279,7 @@ _start:
     lea                 r11, [rbx + rdx]
     mov                 rsi, rax                        ; rule character
     sub                 rsi, ASCII_START                ; registry character number
-    add                 rsi, RULE_REGISTRY_ENTRY_SIZE   ; registry chracter offset
+    add                 rsi, RULE_REGISTRY_ENTRY_SIZE   ; registry character offset
     mov                 [r9 + rsi], r11       ; start pointer
     mov                 [r9 + rsi + 8], rcx   ; length
 
@@ -285,7 +288,7 @@ _start:
     sub                 r8, rcx                         ; Update the available space size.
     add                 r9, RULE_REGISTRY_ENTRY_SIZE
     cmp                 rdx, r15
-    jb                  .register_rule                  ; There still are rules to register.
+    jb                  .register_rule                  ; There are still rules to register.
 
     mov                 eax, SYS_EXIT
     xor                 edi, edi
