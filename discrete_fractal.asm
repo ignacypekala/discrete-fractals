@@ -215,7 +215,7 @@ _start:
     SCAN_LINE           rbx, rdx, r15, .free_both_buffers_and_quit
     cmp                 al, LINE_BREAK
     jne                 .free_both_buffers_and_quit     ; unterminated line
-    mov                 al, [rbx]                       ; Extract rule character.
+    mov                 al, [rbx + rdx]                       ; Extract rule character.
 
     ; Save rule info to the registry.
     lea                 r11, [rbx + rdx]
