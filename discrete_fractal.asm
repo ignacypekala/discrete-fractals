@@ -223,7 +223,7 @@ _start:
     mov                 [r9 + 8], rcx                   ; length
 
     add                 rdx, rcx                        ; Advance the rules buffer offset.
-    add                 rdx, 8                          ; first character after the line break
+    inc                 rdx                             ; first character after the line break
     add                 r9, RULE_REGISTRY_ENTRY_SIZE
     cmp                 rdx, r15
     jl                  .register_rule                  ; There still are rules to register.
