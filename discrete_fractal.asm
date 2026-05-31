@@ -60,11 +60,24 @@ ERROR_CODE              equ 1
     js                  %1
 %endmacro
 
-; Reallocates a block of memory to twice its size. Updates the base address on success.
+; Reallocates a block of memory, doubling its size via sys_mremap. Jumps to a designated label on
+; allocation failure. Overwrites the provided address and size operands upon success.
+;
+; Parameters:
 ;  %1 - original address
 ;  %2 - original size
 ;  %3 - error jump label
 ;  %4 - address hint
+;
+; Affected registers:
+;  rax - pointer to the reallocated block (or negative error code after jump)
+;  rdi - original address
+;  rsi - original size
+;  rdx - new size (%2 * 2)
+;  r10 - mremap flags
+;  r8  - address hint (%4)
+;  rcx, r11 - clobbered by the hardware syscall instruction
+;
 %macro REALLOC 4
     mov                 rax, SYS_MREMAP
     mov                 rdi, %1                         ; original address
