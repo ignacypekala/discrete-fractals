@@ -48,6 +48,10 @@ ERROR_CODE              equ 1
 ;  rcx, r11 - clobbered by syscall
 ;
 %macro MALLOC 2
+;
+;
+;
+;
     mov                 rax, SYS_MMAP
     mov                 rdi, %2                         ; address hint
     mov                 rsi, INITIAL_BUFFER_SIZE
@@ -117,14 +121,26 @@ ERROR_CODE              equ 1
     js                  %4
 %endmacro
 
-; Scan a buffer to find the first occurance of a line break. In the process ensure all of the
-; characters are in the allowed range. Overwrites rcx, rax and r11. The position of the
-; linebreak relative to the designated offset is stored in rcx. If the line break was found register
-; al contains a line break.
+;
+; Scans a buffer for the first occurrence of a line break, ensuring all characters 
+; are within an allowed range during the process. Jumps to a designated label if 
+; an invalid character is encountered.
+;
+; Parameters:
 ;  %1 - base address
 ;  %2 - offset
 ;  %3 - read length limit
 ;  %4 - invalid character jump label
+;
+; Affected registers (on normal return):
+;  rax - al contains the line break character, or 0 if the read limit was reached.
+;  rcx - number of bytes scanned (index of the line break, or exactly %3 if limit reached)
+;  r11 - end of buffer pointer (%1 + %2 + %3)
+;
+; Affected registers (on jump to %4):
+;  rax - al contains the invalid character that triggered the jump.
+;  rcx - absolute memory pointer to the invalid character
+;
 %macro SCAN_LINE 4
     lea                 rcx, [%1 + %2]                  ; start pointer
     lea                 r11, [rcx + %3]                 ; end pointer
