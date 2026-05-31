@@ -199,7 +199,7 @@ _start:
 
 .load_rules_chunk:
     READ                rbx, r15, r13, .free_both_buffers_and_quit
-    add                 r13, rax                        ; move the offset
+    add                 r15, rax                        ; move the offset
     cmp                 rax, rdx
     jl                  .build_rules_registry           ; all rules loaded
 
