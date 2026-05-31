@@ -60,6 +60,7 @@ ERROR_CODE              equ 1
     js                  %1
 %endmacro
 
+;
 ; Reallocates a block of memory, doubling its size via sys_mremap. Jumps to a designated label on
 ; allocation failure. Overwrites the provided address and size operands upon success.
 ;
@@ -67,7 +68,6 @@ ERROR_CODE              equ 1
 ;  %1 - original address
 ;  %2 - original size
 ;  %3 - error jump label
-;  %4 - address hint
 ;
 ; Affected registers:
 ;  rax - pointer to the reallocated block (or negative error code after jump)
