@@ -23,7 +23,10 @@ LINE_BREAK              equ 10
 ASCII_START             equ 33
 ASCII_END               equ 126
 
-INITIAL_BUFFER_SIZE             equ 4096
+FRAME_SIZE              equ 4096
+
+INITIAL_BUFFER_SIZE             equ FRAME_SIZE
+WRITE_BUFFER_SIZE               equ 64 * FRAME_SIZE
 RULE_REGISTRY_ENTRY_SIZE        equ 16                  ; base pointer + rule length
 RULE_REGISTRY_TOTAL_SIZE        equ (ASCII_END - ASCII_START) * RULE_REGISTRY_ENTRY_SIZE
 
@@ -166,15 +169,19 @@ ERROR_CODE              equ 1
 
 section .bss
 
-string_buffer_pointer:  resq 1
+string_buffer:          resq 1
 string_buffer_size:     resq 1
 string_buffer_offset:   resq 1
 
-rules_buffer_pointer:   resq 1
+rules_buffer:           resq 1
 rules_buffer_size:      resq 1
 rules_buffer_offset:    resq 1
 
 rules_registry:         resb RULE_REGISTRY_TOTAL_SIZE
+
+alignb                  FRAME_SIZE
+write_buffer:           resb WRITE_BUFFER_SIZE
+write_buffer_offset     resq 1
 
 section .text
 
@@ -289,6 +296,19 @@ _start:
     add                 r9, RULE_REGISTRY_ENTRY_SIZE
     cmp                 rdx, r15
     jb                  .register_rule                  ; There are still rules to register.
+
+    ; Save the rules buffer state, to hold the "stack".
+    mov                 [rel rules_buffer], rbx
+    mov                 [rel rules_buffer_size], r13
+    mov                 [rel rules_buffer_offset], r15
+
+    MALLOC              .free_both_buffers_and_quit, 0  ; the "stack"
+
+    mov                 rbx, rax
+    mov                 r13, rsi
+    xor                 r15, r15
+
+.expand_character:
 
     mov                 eax, SYS_EXIT
     xor                 edi, edi
