@@ -31,7 +31,7 @@ PARAMETER_COUNT         equ 2                           ; program name + iterati
 ERROR_CODE              equ 1
 
 ;
-; Allocates INITIAL_BUFFER_SIZE bytes of anonymous memory via sys_mmap. Jumps to %1 on failure.
+; Allocate INITIAL_BUFFER_SIZE bytes of anonymous memory via sys_mmap. Jump to %1 on failure.
 ;
 ; Parameters:
 ;  %1 - error jump label,
@@ -61,8 +61,8 @@ ERROR_CODE              equ 1
 %endmacro
 
 ;
-; Reallocates a block of memory, doubling its size via sys_mremap. Jumps to a designated label on
-; allocation failure. Overwrites the provided address and size operands upon success.
+; Reallocate a block of memory, doubling its size via sys_mremap. Jump to a designated label on
+; allocation failure. Overwrite the provided address and size operands upon success.
 ;
 ; Parameters:
 ;  %1 - original address
@@ -92,7 +92,7 @@ ERROR_CODE              equ 1
 %endmacro
 
 ;
-; Reads data from stdin into a buffer. Jumps to a designated label on read errors.
+; Read data from stdin into a buffer. Jump to a designated label on read errors.
 ;
 ; Parameters:
 ;  %1 - base address
@@ -119,8 +119,8 @@ ERROR_CODE              equ 1
 %endmacro
 
 ;
-; Scans a buffer for the first occurrence of a line break, ensuring all characters 
-; are within an allowed range during the process. Jumps to a designated label if 
+; Scan a buffer for the first occurrence of a line break, ensuring all characters 
+; are within an allowed range during the process. Jump to a designated label if 
 ; an invalid character is encountered.
 ;
 ; Parameters:
@@ -280,8 +280,8 @@ _start:
     mov                 rsi, rax                        ; rule character
     sub                 rsi, ASCII_START                ; registry character number
     add                 rsi, RULE_REGISTRY_ENTRY_SIZE   ; registry character offset
-    mov                 [r9 + rsi], r11       ; start pointer
-    mov                 [r9 + rsi + 8], rcx   ; length
+    mov                 [r9 + rsi], r11                 ; start pointer
+    mov                 [r9 + rsi + 8], rcx             ; length
 
     inc                 rdx                             ; first character after the line break
     add                 rdx, rcx                        ; Advance the rules buffer offset.
