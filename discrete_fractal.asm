@@ -30,19 +30,33 @@ RULE_REGISTRY_TOTAL_SIZE        equ (ASCII_END - ASCII_START) * RULE_REGISTRY_EN
 PARAMETER_COUNT         equ 2                           ; program name + iteration count
 ERROR_CODE              equ 1
 
-; Allocate a block of memory.
-;  %1 - error jump label
-;  %2 - address hint
+;
+; Allocates INITIAL_BUFFER_SIZE bytes of anonymous memory via sys_mmap. Jumps to %1 on failure.
+;
+; Parameters:
+;  %1 - error jump label,
+;  %2 - address hint.
+;
+; Affected registers:
+;  rax - pointer to the allocated block (or negative error code after jump)
+;  rdi - address hint
+;  rsi - buffer size
+;  rdx - protection flags
+;  r10 - map flags
+;  r8  - -1
+;  r9  - 0
+;  rcx, r11 - clobbered by syscall
+;
 %macro MALLOC 2
     mov                 rax, SYS_MMAP
-    mov                 edi, %2                         ; address hint
+    mov                 rdi, %2                         ; address hint
     mov                 rsi, INITIAL_BUFFER_SIZE
     mov                 edx, PROT_READ | PROT_WRITE
     mov                 r10, MAP_PRIVATE | MAP_ANONYMOUS
     mov                 r8, -1                          ; file descriptor
     xor                 r9, r9                          ; offset
     syscall
-    test            rax, rax
+    test                rax, rax
     js                  %1
 %endmacro
 
