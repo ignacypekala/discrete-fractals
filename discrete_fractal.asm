@@ -92,7 +92,7 @@ ERROR_CODE              equ 1
 ;  %4 - invalid character jump label
 %macro SCAN_LINE 4
     lea                 rcx, [%1 + %2]                  ; start pointer
-    lea                 r11, [%1 + %3]                  ; end pointer
+    lea                 r11, [rcx + %3]                  ; end pointer
     xor                 eax, eax                        ; clear al
 
 %%scan_character:
