@@ -76,7 +76,7 @@ ERROR_CODE              equ 1
     xor                 edi, edi                        ; stdin
     lea                 rsi, [%1 + %2]                  ; address
     mov                 rdx, %3
-    sub                 rdx, %2                         ; offset
+    sub                 rdx, %2                         ; count
     syscall
     test                rax, rax
     js                  %4
