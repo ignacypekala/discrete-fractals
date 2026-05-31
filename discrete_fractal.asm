@@ -48,10 +48,6 @@ ERROR_CODE              equ 1
 ;  rcx, r11 - clobbered by syscall
 ;
 %macro MALLOC 2
-;
-;
-;
-;
     mov                 rax, SYS_MMAP
     mov                 rdi, %2                         ; address hint
     mov                 rsi, INITIAL_BUFFER_SIZE
@@ -95,6 +91,7 @@ ERROR_CODE              equ 1
     mov                 %2, rdx                         ; update size
 %endmacro
 
+;
 ; Reads data from stdin into a buffer. Jumps to a designated label on read errors.
 ;
 ; Parameters:
@@ -181,10 +178,19 @@ rules_registry:         resb RULE_REGISTRY_TOTAL_SIZE
 
 section .text
 
+;
+; Registers:
+;  rax, rdi, rsi, rdx, r10, r8, r9 - syscall parameters and occasional localized scratch registers
+;  Buffer states:
+;   rbp, rbx - base pointers
+;   r12, r13 - total sizes
+;   r14, r15 - offsets
+;
+
 _start:
     ; Validate parameter count.
-    pop                 rdi
-    cmp                 rdi, PARAMETER_COUNT
+    pop                 rax
+    cmp                 rax, PARAMETER_COUNT
     jnz                 .error_exit
 
     ; Allocate string buffer.
@@ -193,27 +199,27 @@ _start:
 
     ; Initialize the string buffer state.
     mov                 rbp, rax                        ; base address
-    mov                 r14, INITIAL_BUFFER_SIZE        ; total size
-    xor                 r12, r12                        ; current offset
+    mov                 r12, INITIAL_BUFFER_SIZE        ; total size
+    xor                 r14, r14                        ; current offset
 
 .load_string_chunk:
-    READ                rbp, r12, r14, .free_string_buffer_and_quit
+    READ                rbp, r14, r12, .free_string_buffer_and_quit
     
-    ; Register r12 holds a stale value - the offset start of the last read.
-    mov                 r13, rax                        ; Save the new number of bytes read.
+    ; Register r14 holds a stale value - the offset start of the last read.
+    mov                 r15, rax                        ; Save the new number of bytes read.
 
     ; Check if the entire first line has been loaded.
-    SCAN_LINE           rbp, r12, r13, .free_string_buffer_and_quit
+    SCAN_LINE           rbp, r14, r15, .free_string_buffer_and_quit
     cmp                 al, LINE_BREAK
     je                  .copy_rules_from_string_buffer  ; line break found
 
-    add                 r12, r13                        ; Update the string buffer offset.
+    add                 r14, r15                        ; Update the string buffer offset.
 
-    cmp                 r13, rdx
+    cmp                 r15, rdx
     jb                  .free_string_buffer_and_quit    ; The input ended before the first line break.
 
     ; Reallocate the string buffer
-    REALLOC             rbp, r14, .free_string_buffer_and_quit, 0
+    REALLOC             rbp, r12, .free_string_buffer_and_quit, 0
 
     jmp                 .load_string_chunk
 
@@ -221,10 +227,10 @@ _start:
     ; rcx - the number of bytes from the very last read, which are a part of the first line.
 
     ; Update the string buffer offset.
-    add                 r12, rcx
+    add                 r14, rcx
 
     ; Save length of the preloaded rules (bytes read - (line break position + 1)).
-    lea                 r15, [r13 - 1]
+    lea                 r15, [r15 - 1]
     sub                 r15, rcx
 
     ; Allocate rules buffer.
@@ -236,7 +242,7 @@ _start:
 
     ; Copy the first batch of rules from the string buffer.
     mov                 rcx, r15                        ; length
-    lea                 rsi, [rbp + r12 + 1]            ; start of preloaded rules in input buffer
+    lea                 rsi, [rbp + r14 + 1]            ; start of preloaded rules in input buffer
     mov                 rdi, rax                        ; rules buffer
     rep                 movsb
 
