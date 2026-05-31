@@ -159,7 +159,7 @@ _start:
     add                 r12, r13                        ; Update the string buffer offset.
 
     cmp                 r13, rdx
-    jz                  .free_string_buffer_and_quit    ; The input ended before the first line break.
+    jl                  .free_string_buffer_and_quit    ; The input ended before the first line break.
 
     ; Reallocate the string buffer
     REALLOC             rbp, r14, .free_string_buffer_and_quit, 0
