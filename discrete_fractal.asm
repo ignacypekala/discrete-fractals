@@ -70,7 +70,7 @@ ERROR_CODE              equ 1
 ;  %1 - base address
 ;  %2 - offset
 ;  %3 - buffer size
-;  %4 - read error jump label
+;  %5 - eof jump label
 %macro READ 4
     mov                 rax, SYS_READ
     xor                 edi, edi                        ; stdin
@@ -147,8 +147,6 @@ _start:
 
 .load_string_chunk:
     READ                rbp, r12, r14, .free_string_buffer_and_quit
-    test                rax, rax
-    jz                  .free_string_buffer_and_quit    ; The input ended before the first line break.
     
     ; Register r12 holds a stale value - the offset start of the last read.
     mov                 r13, rax                        ; Save the new number of bytes read.
@@ -159,6 +157,9 @@ _start:
     je                  .copy_rules_from_string_buffer  ; line break found
 
     add                 r12, r13                        ; Update the string buffer offset.
+
+    cmp                 r13, rdx
+    jz                  .free_string_buffer_and_quit    ; The input ended before the first line break.
 
     ; Reallocate the string buffer
     REALLOC             rbp, r14, .free_string_buffer_and_quit, 0
@@ -171,15 +172,15 @@ _start:
     ; Update the string buffer offset.
     add                 r12, rcx
 
-    ; Save the preloaded rules info.
-    mov                 r15, r13
-    sub                 r15, rcx                        ; length
+    ; Save length of the preloaded rules (bytes read - (line break position + 1)).
+    lea                 r15, [r13 - 1]
+    sub                 r15, rcx
 
     ; Allocate rules buffer.
     MALLOC              .free_string_buffer_and_quit, 0
 
     ; Check if there are any preloaded rules to copy.
-    cmp                 r15, r15
+    test                r15, r15
     jz                  .load_rules
 
     ; Copy the first batch of rules from the string buffer.
@@ -197,27 +198,35 @@ _start:
     mov                 r13, INITIAL_BUFFER_SIZE
 
 .load_rules_chunk:
-    READ                rbx, r13, r15, .free_both_buffers_and_quit
-    test                rax, rax
-    jz                  .build_rules_registry           ; all rules loaded
+    READ                rbx, r15, r13, .free_both_buffers_and_quit
     add                 r13, rax                        ; move the offset
+    cmp                 rax, rdx
+    jl                  .build_rules_registry           ; all rules loaded
 
-    ; There are still rules remaining.
+    ; Increase the buffer and load more rules.
     REALLOC             rbx, r13, .free_both_buffers_and_quit, 0
     jmp                 .load_rules_chunk
 
 .build_rules_registry:
-    xor                 rdx, rdx                        ; iteration offset
+    xor                 rdx, rdx                        ; rules buffer offset
+    lea                 r9, [rel rules_registry]
 
 .register_rule:
     SCAN_LINE           rbx, rdx, r15, .free_both_buffers_and_quit
     cmp                 al, LINE_BREAK
-    jnz                 .free_both_buffers_and_quit     ; unterminated line
-    mov                 al, [rdx]                       ; rule character
-    sub                 rsp, RULE_REGISTRY_ENTRY_SIZE
-    mov                 rsp, rdx                        ; base pointer
-    mov                 [rsp + 8], rcx                  ; length
-    jmp                 .register_rule
+    jne                 .free_both_buffers_and_quit     ; unterminated line
+    mov                 al, [rbx]                       ; Extract rule character.
+
+    ; Save rule info to the registry.
+    lea                 r11, [rbx + rdx]
+    mov                 [r9], r11                       ; start pointer
+    mov                 [r9 + 8], rcx                   ; length
+
+    add                 rdx, rcx                        ; Advance the rules buffer offset.
+    add                 rdx, 8                          ; first character after the line break
+    add                 r9, RULE_REGISTRY_ENTRY_SIZE
+    cmp                 rdx, r15
+    jl                  .register_rule                  ; There still are rules to register.
 
     mov                 eax, SYS_EXIT
     xor                 edi, edi
