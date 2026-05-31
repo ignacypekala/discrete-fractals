@@ -159,7 +159,7 @@ _start:
     add                 r12, r13                        ; Update the string buffer offset.
 
     cmp                 r13, rdx
-    jl                  .free_string_buffer_and_quit    ; The input ended before the first line break.
+    jb                  .free_string_buffer_and_quit    ; The input ended before the first line break.
 
     ; Reallocate the string buffer
     REALLOC             rbp, r14, .free_string_buffer_and_quit, 0
@@ -201,7 +201,7 @@ _start:
     READ                rbx, r15, r13, .free_both_buffers_and_quit
     add                 r15, rax                        ; move the offset
     cmp                 rax, rdx
-    jl                  .build_rules_registry           ; all rules loaded
+    jbe                 .build_rules_registry           ; all rules loaded
 
     ; Increase the buffer and load more rules.
     REALLOC             rbx, r13, .free_both_buffers_and_quit, 0
@@ -215,20 +215,22 @@ _start:
 .register_rule:
     SCAN_LINE           rbx, rdx, r8, .free_both_buffers_and_quit
     cmp                 al, LINE_BREAK
-    jne                 .free_both_buffers_and_quit     ; unterminated line
-    mov                 al, [rbx + rdx]                       ; Extract rule character.
+    jne                 .free_both_buffers_and_quit     ; unterminated line or no rule
+    mov                 al, [rbx + rdx]                 ; Extract rule character.
 
     ; Save rule info to the registry.
     lea                 r11, [rbx + rdx]
-    mov                 [r9], r11                       ; start pointer
-    mov                 [r9 + 8], rcx                   ; length
+    mov                 rsi, rax
+    shl                 rsi, 4
+    mov                 [r9 + rsi], r11       ; start pointer
+    mov                 [r9 + rsi + 8], rcx   ; length
 
     inc                 rdx                             ; first character after the line break
     add                 rdx, rcx                        ; Advance the rules buffer offset.
     sub                 r8, rcx                         ; Update the available space size.
     add                 r9, RULE_REGISTRY_ENTRY_SIZE
     cmp                 rdx, r15
-    jl                  .register_rule                  ; There still are rules to register.
+    jb                  .register_rule                  ; There still are rules to register.
 
     mov                 eax, SYS_EXIT
     xor                 edi, edi
