@@ -91,11 +91,21 @@ ERROR_CODE              equ 1
     mov                 %2, rdx                         ; update size
 %endmacro
 
-; Read from standard input.
+; Reads data from stdin into a buffer. Jumps to a designated label on read errors.
+;
+; Parameters:
 ;  %1 - base address
 ;  %2 - offset
-;  %3 - buffer size
-;  %5 - eof jump label
+;  %3 - total buffer size
+;  %4 - error jump label
+;
+; Affected registers:
+;  rax - number of bytes read (or negative error code before jump)
+;  rdi - 0
+;  rsi - buffer write start pointer (%1 + %2)
+;  rdx - maximum bytes to read (%3 - %2)
+;  rcx, r11 - clobbered by syscall
+;
 %macro READ 4
     mov                 rax, SYS_READ
     xor                 edi, edi                        ; stdin
