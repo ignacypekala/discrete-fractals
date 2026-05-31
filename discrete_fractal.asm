@@ -185,7 +185,7 @@ _start:
 
     ; Copy the first batch of rules from the string buffer.
     mov                 rcx, r15                        ; length
-    mov                 rsi, rbp                        ; string buffer
+    lea                 rsi, [rbp + r12 + 1]            ; start of preloaded rules in input buffer
     mov                 rdi, rax                        ; rules buffer
     rep                 movsb
 
