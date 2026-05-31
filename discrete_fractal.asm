@@ -210,9 +210,10 @@ _start:
 .build_rules_registry:
     xor                 rdx, rdx                        ; rules buffer offset
     lea                 r9, [rel rules_registry]
+    mov                 r8, r15                         ; remaining rules buffer space
 
 .register_rule:
-    SCAN_LINE           rbx, rdx, r15, .free_both_buffers_and_quit
+    SCAN_LINE           rbx, rdx, r8, .free_both_buffers_and_quit
     cmp                 al, LINE_BREAK
     jne                 .free_both_buffers_and_quit     ; unterminated line
     mov                 al, [rbx + rdx]                       ; Extract rule character.
@@ -222,8 +223,9 @@ _start:
     mov                 [r9], r11                       ; start pointer
     mov                 [r9 + 8], rcx                   ; length
 
-    add                 rdx, rcx                        ; Advance the rules buffer offset.
     inc                 rdx                             ; first character after the line break
+    add                 rdx, rcx                        ; Advance the rules buffer offset.
+    sub                 r8, rcx                         ; Update the available space size.
     add                 r9, RULE_REGISTRY_ENTRY_SIZE
     cmp                 rdx, r15
     jl                  .register_rule                  ; There still are rules to register.
