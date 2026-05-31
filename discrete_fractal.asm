@@ -77,7 +77,7 @@ ERROR_CODE              equ 1
 ;  r10 - mremap flags
 ;  rcx, r11 - clobbered by syscall
 ;
-%macro REALLOC 4
+%macro REALLOC 3
     mov                 rax, SYS_MREMAP
     mov                 rdi, %1                         ; original address
     mov                 rsi, %2                         ; original size
@@ -180,7 +180,7 @@ section .text
 
 ;
 ; Registers:
-;  rax, rdi, rsi, rdx, r10, r8, r9 - syscall parameters and occasional localized scratch registers
+;  rax, rdi, rsi, rdx, r10, r8, r9 - syscall parameters and localized scratch registers
 ;  Buffer states:
 ;   rbp, rbx - base pointers
 ;   r12, r13 - total sizes
@@ -205,8 +205,9 @@ _start:
 .load_string_chunk:
     READ                rbp, r14, r12, .free_string_buffer_and_quit
     
-    ; Register r14 holds a stale value - the offset start of the last read.
-    mov                 r15, rax                        ; Save the new number of bytes read.
+    ; For now register r14 will hold a stale value - the offset of the beginning of the last read.
+    ; The size of the last read will be stored in r15, temporarily bending the declared puprose.
+    mov                 r15, rax
 
     ; Check if the entire first line has been loaded.
     SCAN_LINE           rbp, r14, r15, .free_string_buffer_and_quit
@@ -219,22 +220,19 @@ _start:
     jb                  .free_string_buffer_and_quit    ; The input ended before the first line break.
 
     ; Reallocate the string buffer
-    REALLOC             rbp, r12, .free_string_buffer_and_quit, 0
+    REALLOC             rbp, r12, .free_string_buffer_and_quit
 
     jmp                 .load_string_chunk
 
 .copy_rules_from_string_buffer:
-    ; rcx - the number of bytes from the very last read, which are a part of the first line.
+    add                 r14, rcx                        ; Update the string buffer offset.
 
-    ; Update the string buffer offset.
-    add                 r14, rcx
-
-    ; Save length of the preloaded rules (bytes read - (line break position + 1)).
+    ; Calculate the rules buffer offset (bytes read - (line break position + 1)).
+    ; Register r15 is now in a legal state.
     lea                 r15, [r15 - 1]
-    sub                 r15, rcx
+    sub                 r15, rcx                        
 
-    ; Allocate rules buffer.
-    MALLOC              .free_string_buffer_and_quit, 0
+    MALLOC              .free_string_buffer_and_quit, 0 ; Allocate rules buffer.
 
     ; Check if there are any preloaded rules to copy.
     test                r15, r15
@@ -260,8 +258,7 @@ _start:
     cmp                 rax, rdx
     jbe                 .build_rules_registry           ; all rules loaded
 
-    ; Increase the buffer and load more rules.
-    REALLOC             rbx, r13, .free_both_buffers_and_quit, 0
+    REALLOC             rbx, r13, .free_both_buffers_and_quit
     jmp                 .load_rules_chunk
 
 .build_rules_registry:
@@ -277,8 +274,9 @@ _start:
 
     ; Save rule info to the registry.
     lea                 r11, [rbx + rdx]
-    mov                 rsi, rax
-    shl                 rsi, 4
+    mov                 rsi, rax                        ; rule character
+    sub                 rsi, ASCII_START                ; registry character number
+    add                 rsi, RULE_REGISTRY_ENTRY_SIZE   ; registry chracter offset
     mov                 [r9 + rsi], r11       ; start pointer
     mov                 [r9 + rsi + 8], rcx   ; length
 
