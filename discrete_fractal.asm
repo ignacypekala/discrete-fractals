@@ -291,14 +291,21 @@ _start:
     ; Save rule info to the registry.
     lea                 r11, [rbp + rdx]                ; rule input buffer pointer
     mov                 al, [r11]                       ; rule character
+
+    test                rcx, rcx
+    jz                  .continue_registration          ; the rule is empty
     inc                 r11
     dec                 rcx                             ; skip the rule character
+
     mov                 rsi, rax                        
     sub                 rsi, ASCII_START                ; registry character index
     shl                 rsi, 4                          ; registry character offset
     mov                 [rbx + rsi], r11                ; start pointer
     mov                 [rbx + rsi + 8], rcx            ; length
+    
+    inc                 rcx                             ; revert the rule character exclusion
 
+.continue_registration:
     inc                 rcx                             ; first character after the line break
     add                 rdx, rcx                        ; Advance the rules buffer offset.
     sub                 r8, rcx                         ; Update the available space size.
