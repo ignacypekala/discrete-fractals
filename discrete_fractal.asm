@@ -344,6 +344,8 @@ _start:
 
     ; Grab rule details
     mov                 rdx, [rbx + rsi + 8]            ; rule length
+    test                rdx, rdx
+    jz                  .continue_recursion             ; the rule is empty
 
     ; Push an execution on this rule.
     PUSH                rsp, r13, r12, rdi, 0, rdx, .free_stack_and_input_from_memory
