@@ -169,13 +169,9 @@ ERROR_CODE              equ 1
 
 section .bss
 
-string_buffer:          resq 1
-string_buffer_size:     resq 1
-string_buffer_offset:   resq 1
-
-rules_buffer:           resq 1
-rules_buffer_size:      resq 1
-rules_buffer_offset:    resq 1
+input_buffer:           resq 1
+input_buffer_size:      resq 1
+input_buffer_offset:    resq 1
 
 rules_registry:         resb RULE_REGISTRY_TOTAL_SIZE
 
@@ -190,8 +186,9 @@ section .text
 ;  Volatile:
 ;   rax, rdi, rsi, rdx, r10, r8, r9 - syscall parameters or localized scratchpads
 ;   rcx, r11 - localized scratchpads often clobbered by syscalls
-;  Buffer states:
-;   rbp, rbx - base pointers
+;   rbp - input buffer base pointer
+;   rbx - write buffer base pointer
+;   
 ;   r12, r13 - total sizes
 ;   r14, r15 - offsets
 ;
@@ -202,111 +199,64 @@ _start:
     cmp                 rax, PARAMETER_COUNT
     jnz                 .error_exit
 
-    ; Allocate string buffer.
+    ; Allocate input buffer.
     ; TODO: Manage the address hints
     MALLOC              .error_exit, 0
 
-    ; Initialize the string buffer state.
+    ; Initialize the input buffer state.
     mov                 rbp, rax                        ; base address
-    mov                 r12, INITIAL_BUFFER_SIZE        ; total size
+    mov                 r12, rsi                        ; total size
     xor                 r14, r14                        ; current offset
 
-.load_string_chunk:
-    READ                rbp, r14, r12, .free_string_buffer_and_quit
-    
-    ; For now, register r14 will hold a stale value - the offset of the beginning of the last read.
-    ; Note: r15 temporarily holds the last read size, violating its declared purpose. It will enter a
-    ; legal state before building the rules buffer.
-    mov                 r15, rax
+.load_input:
+    READ                rbp, r14, r12, .free_input_buffer_and_quit 
+    add                 r14, rax                        ; advance offset
+    cmp                 rax, r12
+    jb                  .scan_first_line                ; eof
+    REALLOC             rbp, r12, .free_input_buffer_and_quit 
+    jmp                 .load_input
 
-    ; Check if the entire first line has been loaded.
-    SCAN_LINE           rbp, r14, r15, .free_string_buffer_and_quit
+    xor rdx, rdx                                        ; scan iterator
+
+.scan_first_line:
+    SCAN_LINE           rbp, rdx, r14, .free_input_buffer_and_quit 
+    add                 rdx, rcx                        ; advance offset
+    inc                 rdx                             ; first byte after line break
     cmp                 al, LINE_BREAK
-    je                  .copy_rules_from_string_buffer  ; line break found
-
-    add                 r14, r15                        ; Update the string buffer offset.
-
-    cmp                 r15, rdx
-    jb                  .free_string_buffer_and_quit    ; The input ended before the first line break.
-
-    ; Reallocate the string buffer.
-    REALLOC             rbp, r12, .free_string_buffer_and_quit
-
-    jmp                 .load_string_chunk
-
-.copy_rules_from_string_buffer:
-    add                 r14, rcx                        ; Update the string buffer offset.
-
-    ; Calculate the rules buffer offset (bytes read - (line break position + 1)).
-    ; Register r15 is now in a legal state.
-    lea                 r15, [r15 - 1]
-    sub                 r15, rcx                        
-
-    MALLOC              .free_string_buffer_and_quit, 0 ; Allocate rules buffer.
-
-    ; Check if there are any preloaded rules to copy.
-    test                r15, r15
-    jz                  .load_rules
-
-    ; Copy the first batch of rules from the string buffer.
-    mov                 rcx, r15                        ; length
-    lea                 rsi, [rbp + r14 + 1]            ; start of preloaded rules in input buffer
-    mov                 rdi, rax                        ; rules buffer
-    rep                 movsb
-
-.load_rules:
-    ; rules buffer state:
-    ;   rbx - base address
-    ;   r13 - total size
-    ;   r15 - current offset
-    mov                 rbx, rax
-    mov                 r13, INITIAL_BUFFER_SIZE
-
-.load_rules_chunk:
-    READ                rbx, r15, r13, .free_both_buffers_and_quit
-    add                 r15, rax                        ; Move the offset.
-    cmp                 rax, rdx
-    jbe                 .build_rules_registry           ; all rules loaded
-
-    REALLOC             rbx, r13, .free_both_buffers_and_quit
-    jmp                 .load_rules_chunk
+    jne                 .scan_first_line                ; line break not found
 
 .build_rules_registry:
-    xor                 rdx, rdx                        ; rules buffer offset
-    lea                 r9, [rel rules_registry]
-    mov                 r8, r15                         ; remaining rules buffer space
+    lea                 rbx, [rel rules_registry]
+    mov                 r8, r14
+    sub                 r8, rdx                         ; remaining rules buffer space 
 
 .register_rule:
-    SCAN_LINE           rbx, rdx, r8, .free_both_buffers_and_quit
+    SCAN_LINE           rbp, rdx, r8, .free_both_buffers_and_quit
     cmp                 al, LINE_BREAK
     jne                 .free_both_buffers_and_quit     ; unterminated line or no rule
-    mov                 al, [rbx + rdx]                 ; Extract rule character.
 
     ; Save rule info to the registry.
-    lea                 r11, [rbx + rdx]
-    mov                 rsi, rax                        ; rule character
-    sub                 rsi, ASCII_START                ; registry character number
-    add                 rsi, RULE_REGISTRY_ENTRY_SIZE   ; registry character offset
-    mov                 [r9 + rsi], r11                 ; start pointer
-    mov                 [r9 + rsi + 8], rcx             ; length
+    lea                 r11, [rbp + rdx]                ; rule input buffer pointer
+    mov                 al, [r11]                       ; rule character
+    mov                 rsi, rax                        
+    sub                 rsi, ASCII_START                ; registry character index
+    shl                 rsi, 4                               ; registry character offset (log_2 (RULE_REGISTRY_ENTRY_SIZE))
+    mov                 [rbx + rsi], r11                ; start pointer
+    mov                 [rbx + rsi + 8], rcx            ; length
 
-    inc                 rdx                             ; first character after the line break
+    inc                 rcx                             ; first character after the line break
     add                 rdx, rcx                        ; Advance the rules buffer offset.
     sub                 r8, rcx                         ; Update the available space size.
-    add                 r9, RULE_REGISTRY_ENTRY_SIZE
-    cmp                 rdx, r15
+    cmp                 rdx, r14
     jb                  .register_rule                  ; There are still rules to register.
 
-    ; Save the rules buffer state, to hold the "stack".
-    mov                 [rel rules_buffer], rbx
-    mov                 [rel rules_buffer_size], r13
-    mov                 [rel rules_buffer_offset], r15
 
-    MALLOC              .free_both_buffers_and_quit, 0  ; the "stack"
 
-    mov                 rbx, rax
-    mov                 r13, rsi
-    xor                 r15, r15
+    ; MALLOC              .free_both_buffers_and_quit, 0  ; the "stack"
+    ;
+    ; mov                 rbx, rax
+    ; mov                 r13, rsi
+    ; xor                 r15, r15
 
 .expand_character:
 
@@ -315,10 +265,10 @@ _start:
     syscall
 
 .free_both_buffers_and_quit:
-    ; TODO: Free the rules buffer.
+    ; TODO: Free the "stack" buffer.
     nop
 
-.free_string_buffer_and_quit:
+.free_input_buffer_and_quit:
     ; TODO: Free the input buffer.
     nop
 
