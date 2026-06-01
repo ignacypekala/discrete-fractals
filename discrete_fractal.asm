@@ -183,14 +183,11 @@ section .text
 
 ;
 ; Registers:
-;  Volatile:
-;   rax, rdi, rsi, rdx, r10, r8, r9 - syscall parameters or localized scratchpads
-;   rcx, r11 - localized scratchpads often clobbered by syscalls
-;   rbp - input buffer base pointer
-;   rbx - write buffer base pointer
-;   
-;   r12, r13 - total sizes
-;   r14, r15 - offsets
+;  rax, rdi, rsi, rdx, r10, r8, r9 - syscall parameters or localized scratchpads
+;  rcx, r11 - localized scratchpads often clobbered by syscalls
+;  rbp, rbx - buffer pointers
+;  r12, r13, r14 - buffer states
+;  r15 - scratchpad
 ;
 
 _start:
