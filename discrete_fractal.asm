@@ -224,6 +224,8 @@ input_buffer:           resq 1
 input_buffer_size:      resq 1
 input_buffer_offset:    resq 1
 
+first_line_length:      resq 1
+
 rules_registry:         resb RULE_REGISTRY_TOTAL_SIZE
 
 alignb                  FRAME_SIZE
@@ -274,6 +276,8 @@ _start:
     cmp                 al, LINE_BREAK
     jne                 .scan_first_line                ; line break not found
 
+    mov                 [rel first_line_length], rdx
+
 .build_rules_registry:
     lea                 rbx, [rel rules_registry]
     mov                 r8, r14
@@ -315,7 +319,8 @@ _start:
     xor                 r13, r13                        ; current offset
 
     ; Push the initial execution on the input string.
-    PUSH                rsp, r13, r12, rbp, 0, r14, .free_stack_and_input_from_memory
+    mov                 r9, [rel first_line_length]
+    PUSH                rsp, r13, r12, rbp, 0, r9, .free_stack_and_input_from_memory
 
 .process_character:
     lea                 r11, [rsp + r13 - STACK_ENTRY_SIZE]     ; stack top pointer
