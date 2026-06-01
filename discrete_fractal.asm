@@ -328,6 +328,8 @@ _start:
 
     ; Push the initial execution on the input string.
     mov                 r9, [rel first_line_length]
+    test                r9, r9
+    jz                  .write_remaining_output
     PUSH                rsp, r13, r12, rbp, 0, r9, .free_stack_and_input_from_memory
 
 .process_character:
@@ -373,6 +375,8 @@ _start:
     inc                 r15                             ; recursion depth counter
     test                r13, r13
     jnz                 .continue_recursion
+
+.write_remaining_output:
 
     mov                 eax, SYS_EXIT
     xor                 edi, edi
