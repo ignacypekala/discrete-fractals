@@ -212,10 +212,11 @@ _start:
     READ                rbp, r14, r12, .free_input_buffer_and_quit 
     add                 r14, rax                        ; advance offset
     cmp                 rax, r12
-    jb                  .scan_first_line                ; eof
+    jb                  .scan_input                     ; eof
     REALLOC             rbp, r12, .free_input_buffer_and_quit 
     jmp                 .load_input
 
+.scan_input:
     xor rdx, rdx                                        ; scan iterator
 
 .scan_first_line:
