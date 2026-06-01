@@ -316,9 +316,9 @@ _start:
     PUSH                rsp, r13, r12, rbp, 0, r14, .free_stack_and_input_from_memory
 
 .process_character:
-    lea                 r11, [rsp + r13]                ; stack top pointer
-    mov                 rdx, [r11]                      ; base pointer
-    mov                 rcx, [r11 + 8]                  ; character index
+    lea                 r11, [rsp + r13 - STACK_ENTRY_SIZE]     ; stack top pointer
+    mov                 rdx, [r11]                              ; base pointer
+    mov                 rcx, [r11 + 8]                          ; character index
     inc                 [r11 + 8]
     xor                 rax, rax
     mov                 al, [rdx + rcx]                 ; character
@@ -327,26 +327,26 @@ _start:
     mov                 rsi, rax
     sub                 rsi, ASCII_START                ; character index
     shl                 rsi, 4                          ; character offset
-    mov                 rdi, [rbx + rax]                ; rule pointer
+    mov                 rdi, [rbx + rsi]                ; rule pointer
 
     ; Check if rule application should be skipped.
     test                rdi, rdi
-    js                  .write_char                     ; there is no rule
+    jz                  .write_char                     ; there is no rule
     test                r15, r15
     jz                  .write_char                     ; recursion depth limit reached
 
     ; Grab rule details
-    mov                 rcx, [rbx + rax + 8]            ; rule length
+    mov                 rdx, [rbx + rax + 8]            ; rule length
     mov                 rax, [rdi + rcx]                ; replacement character
 
     ; Push an execution on this rule.
-    PUSH                rsp, r13, r12, rdi, 0, rcx, .free_stack_and_input_from_memory
+    PUSH                rsp, r13, r12, rdi, 0, rdx, .free_stack_and_input_from_memory
     dec                 r15                             ; recursion depth counter
 
 .write_char:
     WRITE               rax                             ; there is no rule
 
-    mov                 r11, [rsp + r13]
+    mov                 r11, [rsp + r13 - STACK_ENTRY_SIZE]
     mov                 rcx, [r11 + 8]                  ; character index
     cmp                 rcx, [r11 + 16]                 ; string length
     jb                  .process_character              ; the top recursive call is not completed
