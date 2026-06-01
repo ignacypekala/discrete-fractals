@@ -348,6 +348,7 @@ _start:
 .write_char:
     WRITE               rax                             ; there is no rule
 
+.continue_recursion:
     mov                 r11, [rsp + r13 - STACK_ENTRY_SIZE]
     mov                 rcx, [r11 + 8]                  ; character index
     cmp                 rcx, [r11 + 16]                 ; string length
@@ -355,6 +356,8 @@ _start:
 
     POP                 r13
     inc                 r15                             ; recursion depth counter
+    test                r13, r13
+    jnz                 .continue_recursion
 
     mov                 eax, SYS_EXIT
     xor                 edi, edi
