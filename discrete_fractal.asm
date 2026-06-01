@@ -338,7 +338,7 @@ _start:
     jz                  .write_char                     ; recursion depth limit reached
 
     ; Grab rule details
-    mov                 rdx, [rbx + rax + 8]            ; rule length
+    mov                 rdx, [rbx + rsi + 8]            ; rule length
     mov                 rax, [rdi + rcx]                ; replacement character
 
     ; Push an execution on this rule.
