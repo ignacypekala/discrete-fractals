@@ -276,7 +276,8 @@ _start:
     cmp                 al, LINE_BREAK
     jne                 .scan_first_line                ; line break not found
 
-    mov                 [rel first_line_length], rdx
+    lea                 rcx, [rdx - 1]
+    mov                 [rel first_line_length], rcx
 
 .build_rules_registry:
     lea                 rbx, [rel rules_registry]
