@@ -26,9 +26,13 @@ ASCII_END               equ 126
 FRAME_SIZE              equ 4096
 
 INITIAL_BUFFER_SIZE             equ FRAME_SIZE
+
 WRITE_BUFFER_SIZE               equ 64 * FRAME_SIZE
-RULE_REGISTRY_ENTRY_SIZE        equ 16                  ; base pointer + rule length
+
+RULE_REGISTRY_ENTRY_SIZE        equ 8 * 2                  ; base pointer + rule length
 RULE_REGISTRY_TOTAL_SIZE        equ (ASCII_END - ASCII_START) * RULE_REGISTRY_ENTRY_SIZE
+
+STACK_ENTRY_SIZE        equ 8 * 3                       ; base pointer + string length + current index
 
 PARAMETER_COUNT         equ 2                           ; program name + iteration count
 ERROR_CODE              equ 1
@@ -167,6 +171,53 @@ ERROR_CODE              equ 1
     sub                 rcx, %2
 %endmacro
 
+;
+; Push one set of three values into the "stack" buffer. Reallocate the buffer if 
+;
+; Parameters:
+;  %1 - base pointer
+;  %2 - current offset
+;  %3 - total buffer size
+;  %4 - value 1
+;  %5 - value 2
+;  %6 - value 3
+;  %7 - reallocation failure jump label
+;
+; Affected registers:
+;  rcx, r11 - clobbered
+;  %1  - updated on reallocation
+;  %3  - increased on reallocation
+;  %2  - moved up by STACK_ENTRY_SIZE
+;
+%macro PUSH 7
+    mov                 r11, %3
+    sub                 r11, %2                         ; remaining space
+    cmp                 r11, STACK_ENTRY_SIZE
+    jae                 %%write_values                  ; sufficient space
+    REALLOC             %1, %3, %7
+%%write_values:
+    lea                 rcx, [%1 + %2]
+    mov                 [rcx], %4
+    mov                 [rcx + 8], %5
+    mov                 [rcx + 16], %6
+    add                 %2, STACK_ENTRY_SIZE
+%endmacro
+
+%macro POP 1
+    sub                 %1, STACK_ENTRY_SIZE 
+%endmacro
+
+;
+; Append the character to the write buffer, flash on full.
+;
+; Parameters:
+;  %1 - character to write
+;
+%macro WRITE 1          
+    mov                 r11, [rel write_buffer]
+    ; TODO: Implement
+%endmacro
+
 section .bss
 
 input_buffer:           resq 1
@@ -229,16 +280,16 @@ _start:
     sub                 r8, rdx                         ; remaining rules buffer space 
 
 .register_rule:
-    SCAN_LINE           rbp, rdx, r8, .free_both_buffers_and_quit
+    SCAN_LINE           rbp, rdx, r8, .free_input_buffer_and_quit
     cmp                 al, LINE_BREAK
-    jne                 .free_both_buffers_and_quit     ; unterminated line or no rule
+    jne                 .free_input_buffer_and_quit     ; unterminated line or no rule
 
     ; Save rule info to the registry.
     lea                 r11, [rbp + rdx]                ; rule input buffer pointer
     mov                 al, [r11]                       ; rule character
     mov                 rsi, rax                        
     sub                 rsi, ASCII_START                ; registry character index
-    shl                 rsi, 4                               ; registry character offset (log_2 (RULE_REGISTRY_ENTRY_SIZE))
+    shl                 rsi, 4                          ; registry character offset ()
     mov                 [rbx + rsi], r11                ; start pointer
     mov                 [rbx + rsi + 8], rcx            ; length
 
@@ -248,19 +299,67 @@ _start:
     cmp                 rdx, r14
     jb                  .register_rule                  ; There are still rules to register.
 
+    ; Save input buffer state
+    mov                 [rel input_buffer], rbp
+    mov                 [rel input_buffer_size], r12    ; not needed until cleanup
+    mov                 [rel input_buffer_offset], r14
 
+    pop                 r15                             ; iteration count
 
-    ; MALLOC              .free_both_buffers_and_quit, 0  ; the "stack"
-    ;
-    ; mov                 rbx, rax
-    ; mov                 r13, rsi
-    ; xor                 r15, r15
+    ; Allocate the "stack" on the heap. Discard the system stack in favor of the heap one.
+    MALLOC              .free_input_buffer_and_quit, 0  
+    mov                 rsp, rax                        ; base pointer
+    mov                 r12, rsi                        ; total size
+    xor                 r13, r13                        ; current offset
 
-.expand_character:
+    ; Push the initial execution on the input string.
+    PUSH                rsp, r13, r12, rbp, 0, r14, .free_stack_and_input_from_memory
+
+.process_character:
+    lea                 r11, [rsp + r13]                ; stack top pointer
+    mov                 rdx, [r11]                      ; base pointer
+    mov                 rcx, [r11 + 8]                  ; character index
+    inc                 [r11 + 8]
+    xor                 rax, rax
+    mov                 al, [rdx + rcx]                 ; character
+
+    ; Identify the rule
+    mov                 rsi, rax
+    sub                 rsi, ASCII_START                ; character index
+    shl                 rsi, 4                          ; character offset
+    mov                 rdi, [rbx + rax]                ; rule pointer
+
+    ; Check if rule application should be skipped.
+    test                rdi, rdi
+    js                  .write_char                     ; there is no rule
+    test                r15, r15
+    jz                  .write_char                     ; recursion depth limit reached
+
+    ; Grab rule details
+    mov                 rcx, [rbx + rax + 8]            ; rule length
+    mov                 rax, [rdi + rcx]                ; replacement character
+
+    ; Push an execution on this rule.
+    PUSH                rsp, r13, r12, rdi, 0, rcx, .free_stack_and_input_from_memory
+    dec                 r15                             ; recursion depth counter
+
+.write_char:
+    WRITE               rax                             ; there is no rule
+
+    mov                 r11, [rsp + r13]
+    mov                 rcx, [r11 + 8]                  ; character index
+    cmp                 rcx, [r11 + 16]                 ; string length
+    jb                  .process_character              ; the top recursive call is not completed
+
+    POP                 r13
+    inc                 r15                             ; recursion depth counter
 
     mov                 eax, SYS_EXIT
     xor                 edi, edi
     syscall
+
+.free_stack_and_input_from_memory:
+    ; TODO: Free the input buffer from memory and free the stack from register.
 
 .free_both_buffers_and_quit:
     ; TODO: Free the "stack" buffer.
