@@ -321,7 +321,7 @@ _start:
     lea                 r11, [rsp + r13 - STACK_ENTRY_SIZE]     ; stack top pointer
     mov                 rdx, [r11]                              ; base pointer
     mov                 rcx, [r11 + 8]                          ; character index
-    inc                 [r11 + 8]
+    inc                 qword [r11 + 8]
     xor                 rax, rax
     mov                 al, [rdx + rcx]                 ; character
 
