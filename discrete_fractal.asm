@@ -287,9 +287,11 @@ _start:
     ; Save rule info to the registry.
     lea                 r11, [rbp + rdx]                ; rule input buffer pointer
     mov                 al, [r11]                       ; rule character
+    inc                 r11
+    dec                 rcx                             ; skip the rule character
     mov                 rsi, rax                        
     sub                 rsi, ASCII_START                ; registry character index
-    shl                 rsi, 4                          ; registry character offset ()
+    shl                 rsi, 4                          ; registry character offset
     mov                 [rbx + rsi], r11                ; start pointer
     mov                 [rbx + rsi + 8], rcx            ; length
 
