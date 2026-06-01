@@ -344,6 +344,7 @@ _start:
     ; Push an execution on this rule.
     PUSH                rsp, r13, r12, rdi, 0, rdx, .free_stack_and_input_from_memory
     dec                 r15                             ; recursion depth counter
+    jmp                 .process_character
 
 .write_char:
     WRITE               rax                             ; there is no rule
