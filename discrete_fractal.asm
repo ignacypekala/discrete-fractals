@@ -431,6 +431,7 @@ _start:
 
     POP                 r13
     inc                 r15                             ; recursion depth counter
+    sub                 rbp, STACK_ENTRY_SIZE           ; correct stack top pointer
     test                r13, r13
     jnz                 .continue_recursion
 
