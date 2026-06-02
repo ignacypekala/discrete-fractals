@@ -226,7 +226,7 @@ ERROR_CODE              equ 1
 %%flush_write_buffer:
     mov                 eax, SYS_WRITE
     mov                 edi, STD_OUT
-    mov                 rsi, [rel write_buffer]
+    lea                 rsi, [rel write_buffer]
     mov                 rdx, %1
     syscall
     test                rax, rax
