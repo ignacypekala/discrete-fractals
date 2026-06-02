@@ -340,6 +340,8 @@ _start:
     SCAN_LINE           rbp, rdx, r8, .free_input_buffer_and_quit
     cmp                 al, LINE_BREAK
     jne                 .free_input_buffer_and_quit     ; unterminated line or no rule
+    test                rcx, rcx
+    jz                  .free_input_buffer_and_quit     ; empty rule
 
     ; Save rule info to the registry.
     lea                 r11, [rbp + rdx]                ; rule input buffer pointer
