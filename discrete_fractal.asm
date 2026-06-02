@@ -434,7 +434,11 @@ _start:
     jnz                 .continue_recursion
 
 .write_remaining_output:
+    test                r9, r9
+    jz                  .end
+    FLUSH               r9, .free_stack_and_input_from_memory
 
+.end:
     mov                 eax, SYS_EXIT
     xor                 edi, edi
     syscall
