@@ -392,7 +392,6 @@ _start:
 
     mov                 r11, [rbp]                      ; base pointer
     mov                 r14b, [r11 + rcx]               ; string character
-    ; TODO: change rax to r14b everywhere
 
     ; Identify the rule
     mov                 rcx, r14
