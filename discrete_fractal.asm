@@ -296,19 +296,19 @@ _start:
 
 .scan_first_line:
     SCAN_LINE           rbp, rdx, r8, .free_input_buffer_and_quit 
-    inc                 rcx
     add                 rdx, rcx                        ; advance offset
     sub                 r8, rcx                         ; update scan limit
     cmp                 al, LINE_BREAK
     jne                 .scan_first_line                ; line break not found
+
+    inc                 rdx                             ; skip line break
+    dec                 r8
 
     lea                 rcx, [rdx - 1]
     mov                 [rel first_line_length], rcx
 
 .build_rules_registry:
     lea                 rbx, [rel rules_registry]
-    mov                 r8, r14
-    sub                 r8, rdx                         ; remaining rules buffer space 
 
 .register_rule:
     SCAN_LINE           rbp, rdx, r8, .free_input_buffer_and_quit
