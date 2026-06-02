@@ -172,7 +172,8 @@ ERROR_CODE              equ 1
 %endmacro
 
 ;
-; Push one set of three values into the "stack" buffer. Reallocate the buffer if 
+; Push one set of three values into the "stack" buffer, without checking if it will fit. 
+; Reallocate the buffer if there is is no space of another set of three.
 ;
 ; Parameters:
 ;  %1 - base pointer
@@ -190,17 +191,17 @@ ERROR_CODE              equ 1
 ;  %2  - moved up by STACK_ENTRY_SIZE
 ;
 %macro PUSH 7
-    mov                 r11, %3
-    sub                 r11, %2                         ; remaining space
-    cmp                 r11, STACK_ENTRY_SIZE
-    jae                 %%write_values                  ; sufficient space
-    REALLOC             %1, %3, %7
-%%write_values:
     lea                 rcx, [%1 + %2]
-    mov                 [rcx], %4
-    mov                 [rcx + 8], %5
-    mov                 [rcx + 16], %6
+    mov                 qword [rcx], %4
+    mov                 qword [rcx + 8], %5
+    mov                 qword [rcx + 16], %6
     add                 %2, STACK_ENTRY_SIZE
+    
+    lea                 r11, [%3 - STACK_ENTRY_SIZE]
+    sub                 r11, %2
+    jns                 %%return                        ; (total size - offset) < STACK_ENTRY_SIZE
+    REALLOC             %1, %3, %7
+%%return:
 %endmacro
 
 %macro POP 1
@@ -390,7 +391,16 @@ _start:
     jmp                 .process_character
 
 .write_char:
-    WRITE               rax                             ; there is no rule
+;     mov                 rcx, [rel write_buffer_offset]
+;     cmp                 rcx, WRITE_BUFFER_SIZE
+;     jb                  %%append_character              ; sufficient space
+;
+;     mov                 rsi, [rel write_buffer]
+;
+;    
+; .append_character:
+;     mov                 r11, [rel write_buffer]
+;     ; TODO: Implement
 
 .continue_recursion:
     mov                 rcx, [rbp + 8]                  ; character index
