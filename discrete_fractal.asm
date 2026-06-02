@@ -372,21 +372,21 @@ _start:
     mov                 rcx, rax
     sub                 rcx, ASCII_START                ; character index
     shl                 rcx, 4                          ; character offset
-    mov                 r14, [rbx + rcx]                ; rule pointer
+    mov                 rdi, [rbx + rcx]                ; rule pointer
 
     ; Check if rule application should be skipped.
-    test                r14, r14
+    test                rdi, rdi
     jz                  .write_char                     ; there is no rule
     test                r15, r15
     jz                  .write_char                     ; recursion depth limit reached
 
     ; Grab rule details
-    mov                 r9, [rbx + rsi + 8]            ; rule length
-    test                r9, r9
+    mov                 rdx, [rbx + rcx + 8]            ; rule length
+    test                rdx, rdx
     jz                  .continue_recursion             ; the rule is empty
 
     ; Push an execution on this rule.
-    PUSH                rsp, r13, r12, r14, 0, r9, .free_stack_and_input_from_memory
+    PUSH                rsp, r13, r12, rdi, 0, rdx, .free_stack_and_input_from_memory
     dec                 r15                             ; recursion depth counter
     jmp                 .process_character
 
