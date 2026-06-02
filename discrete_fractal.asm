@@ -240,6 +240,32 @@ ERROR_CODE              equ 1
     sub                 %1, rax
 %endmacro
 
+
+;
+; Append a single character to the write buffer. If the buffer has reached its capacity, 
+; flush its contents to stdout before appending. Jump to a designated label on 
+; flush failures.
+;
+; Parameters:
+;  %1 - write buffer offset
+;  %2 - character to write
+;  %3 - flush error jump label
+;
+; Affected registers:
+;  r11 - clobbered (used to load the write buffer base pointer)
+;  %1  - incremented by 1 (or reset to 1 if a buffer flush is triggered)
+;  rax, rcx, rdx, rdi, rsi - conditionally clobbered if FLUSH is invoked
+;
+%macro WRITE 3
+    cmp                 %1, WRITE_BUFFER_SIZE
+    jb                  %%append_character              ; sufficient space
+    FLUSH               %1, %3
+%%append_character:
+    lea                 r11, [rel write_buffer]
+    mov                 [r11 + %1], %2
+    inc                 %1
+%endmacro
+
 section .bss
 
 input_buffer:           resq 1
@@ -413,14 +439,7 @@ _start:
     jmp                 .process_character
 
 .write_char:
-    cmp                 r9, WRITE_BUFFER_SIZE
-    jb                  .append_character              ; sufficient space
-    FLUSH               r9, .free_stack_and_input_from_memory    
-   
-.append_character:
-    lea                 r11, [rel write_buffer]
-    mov                 [r11 + r9], r14b
-    inc                 r9
+    WRITE               r9, r14b, .free_stack_and_input_from_memory
 
 .continue_recursion:
     mov                 rcx, [rbp + 8]                  ; character index
