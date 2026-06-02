@@ -335,6 +335,8 @@ _start:
 
 .build_rules_registry:
     lea                 rbx, [rel rules_registry]
+    cmp                 rdx, r14
+    jae                 .save_input_buffer              ; no rules
 
 .register_rule:
     SCAN_LINE           rbp, rdx, r8, .free_input_buffer_and_quit
