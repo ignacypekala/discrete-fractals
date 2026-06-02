@@ -345,6 +345,7 @@ _start:
 
 .prepare_for_main_processing:
 
+.prepare_for_main_processing:
     ; Allocate the "stack" on the heap. Discard the system stack in favor of the heap one.
     MALLOC              .free_input_buffer_and_quit, 0  
     mov                 rsp, rax                        ; base pointer
@@ -358,32 +359,33 @@ _start:
     PUSH                rsp, r13, r12, rbp, 0, r9, .free_stack_and_input_from_memory
 
 .process_character:
-    lea                 r11, [rsp + r13 - STACK_ENTRY_SIZE]     ; stack top pointer
-    mov                 rdx, [r11]                              ; base pointer
-    mov                 rcx, [r11 + 8]                          ; character index
-    inc                 qword [r11 + 8]                         ; mark character as handled
+    lea                 rbp, [rsp + r13 - STACK_ENTRY_SIZE]     ; stack top pointer
+    mov                 rcx, [rbp + 8]                          ; character index
+    inc                 qword [rbp + 8]                         ; mark character as handled
+
+    mov                 r11, [rbp]                      ; base pointer
     xor                 rax, rax
-    mov                 al, [rdx + rcx]                 ; character
+    mov                 al, [r11 + rcx]                 ; character
 
     ; Identify the rule
-    mov                 rsi, rax
-    sub                 rsi, ASCII_START                ; character index
-    shl                 rsi, 4                          ; character offset
-    mov                 rdi, [rbx + rsi]                ; rule pointer
+    mov                 rcx, rax
+    sub                 rcx, ASCII_START                ; character index
+    shl                 rcx, 4                          ; character offset
+    mov                 r14, [rbx + rcx]                ; rule pointer
 
     ; Check if rule application should be skipped.
-    test                rdi, rdi
+    test                r14, r14
     jz                  .write_char                     ; there is no rule
     test                r15, r15
     jz                  .write_char                     ; recursion depth limit reached
 
     ; Grab rule details
-    mov                 rdx, [rbx + rsi + 8]            ; rule length
-    test                rdx, rdx
+    mov                 r9, [rbx + rsi + 8]            ; rule length
+    test                r9, r9
     jz                  .continue_recursion             ; the rule is empty
 
     ; Push an execution on this rule.
-    PUSH                rsp, r13, r12, rdi, 0, rdx, .free_stack_and_input_from_memory
+    PUSH                rsp, r13, r12, r14, 0, r9, .free_stack_and_input_from_memory
     dec                 r15                             ; recursion depth counter
     jmp                 .process_character
 
@@ -391,9 +393,8 @@ _start:
     WRITE               rax                             ; there is no rule
 
 .continue_recursion:
-    mov                 r11, [rsp + r13 - STACK_ENTRY_SIZE]
-    mov                 rcx, [r11 + 8]                  ; character index
-    cmp                 rcx, [r11 + 16]                 ; string length
+    mov                 rcx, [rbp + 8]                  ; character index
+    cmp                 rcx, [rbp + 16]                 ; string length
     jb                  .process_character              ; the top recursive call is not completed
 
     POP                 r13
