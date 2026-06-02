@@ -208,16 +208,36 @@ ERROR_CODE              equ 1
     sub                 %1, STACK_ENTRY_SIZE 
 %endmacro
 
+
 ;
-; Append the character to the write buffer, flash on full.
+; Flush the write buffer to std_out. Reattempt on partial writes.
 ;
 ; Parameters:
-;  %1 - character to write
+;  %1 - current write buffer offset
+;  %2 - write error jump label
 ;
-%macro WRITE 1          
-    mov                 r11, [rel write_buffer]
-    ; TODO: Implement
+; Affected registers:
+;  rcx, r11, rax, rdi - clobbered
+;  rsi - pointer to the character following the last read (write_buffer + WRITE_BUFFER_SIZE on success)
+;  %1 - number of bytes left to read
+;  
+%macro FLUSH 2
+%%flush_write_buffer:
+    mov                 eax, SYS_WRITE
+    mov                 edi, STD_OUT
+    mov                 rsi, [rel write_buffer]
+    mov                 rdx, %1
+    syscall
+    test                rax, rax
+    jb                  %2
+    cmp                 rax, %1
+    jz                  %%return               ; buffer flushed completely
+    add                 rsi, rax 
+    sub                 %1, rax
+    jmp %%flush_write_buffer                             ; reattempt flush
+%%return:
 %endmacro
+
 
 section .bss
 
