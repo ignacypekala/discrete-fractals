@@ -470,7 +470,6 @@ _start:
     WRITE               r9, LINE_BREAK, .free_stack_and_input_from_memory
     FLUSH               r9, .free_stack_and_input_from_memory
 
-.end:
     mov                 eax, SYS_EXIT
     xor                 edi, edi
     syscall
