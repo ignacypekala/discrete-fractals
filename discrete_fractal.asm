@@ -235,11 +235,10 @@ ERROR_CODE              equ 1
     jz                  %%return                        ; buffer flushed completely
     add                 rsi, rax 
     sub                 %1, rax
-    jmp %%flush_write_buffer                            ; reattempt flush
+    jmp                 %%flush_write_buffer            ; reattempt flush
 %%return:
     sub                 %1, rax
 %endmacro
-
 
 section .bss
 
