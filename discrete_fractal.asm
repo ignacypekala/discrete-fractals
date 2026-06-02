@@ -248,6 +248,7 @@ _start:
     pop                 rax
     cmp                 rax, PARAMETER_COUNT
     jnz                 .error_exit
+    pop                 rax                             ; program name
 
     ; Allocate input buffer.
     ; TODO: Manage the address hints
@@ -318,7 +319,31 @@ _start:
     mov                 [rel input_buffer_size], r12    ; not needed until cleanup
     mov                 [rel input_buffer_offset], r14
 
-    pop                 r15                             ; iteration count
+    ; Parse the iteration count
+    pop                 r8                              ; iteration count string pointer
+    xor                 eax, eax
+    xor                 r15, r15                        ; final n
+    
+.parse_iteration_count_digit:
+    mov                 al, [r8]                        ; parsed character
+    test                al, al
+    jz                  .prepare_for_main_processing    ; string parsed
+    cmp                 al, '9'
+    ja                  .free_input_buffer_and_quit     ; invalid character
+    sub                 al, '0'
+    jb                  .free_input_buffer_and_quit     ; invalid character
+    
+    ; The maximum intermediate result (2^32 - 1) easily fits within the 
+    ; 64-bit register, guaranteeing imul will never truncate the value. 
+    ; Additionally, because the sign bit always remains 0, imul safely 
+    ; treats it as a positive integer, perfectly mirroring unsigned math.
+    imul                r15, 10
+    add                 r15, rax
+    
+    inc                 r8
+    jmp                 .parse_iteration_count_digit
+
+.prepare_for_main_processing:
 
     ; Allocate the "stack" on the heap. Discard the system stack in favor of the heap one.
     MALLOC              .free_input_buffer_and_quit, 0  
