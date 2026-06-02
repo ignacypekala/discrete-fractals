@@ -205,6 +205,15 @@ ERROR_CODE              equ 1
 %%return:
 %endmacro
 
+;
+; Decrement the stack offset. Mostly a visual counterpart to PUSH.
+;
+; Parameters:
+;  %1 - current offset (decreased by STACK_ENTRY_SIZE)
+; 
+; Affected registers:
+;  %1 - decreased by STACK_ENTRY_SIZE
+;
 %macro POP 1
     sub                 %1, STACK_ENTRY_SIZE 
 %endmacro
