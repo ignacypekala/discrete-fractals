@@ -328,12 +328,10 @@ _start:
     SCAN_LINE           rbp, rdx, r14, .free_input_buffer_and_quit 
     cmp                 al, LINE_BREAK
     jne                 .free_input_buffer_and_quit     ; line break not found
+    mov                 [rel first_line_length], rcx
+    inc                 rcx                             ; skip line break
     add                 rdx, rcx                        ; advance offset
     sub                 r8, rcx                         ; update scan limit
-    inc                 rdx                             ; skip line break
-    dec                 r8                              ; update scan limit
-
-    mov                 [rel first_line_length], rcx
 
 .build_rules_registry:
     lea                 rbx, [rel rules_registry]
