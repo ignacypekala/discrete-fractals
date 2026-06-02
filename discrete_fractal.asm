@@ -13,9 +13,8 @@ MAP_PRIVATE             equ 0x02
 MAP_ANONYMOUS           equ 0x20
 MREMAP_MAYMOVE          equ 0x1
 
-READ_ERROR              equ -1
-MAP_FAILED              equ -1
 EOF                     equ 0
+N_MAX                   equ 0xffffffff                  ; 2^32 - 1
 
 STD_IN                  equ 0
 STD_OUT                 equ 1
@@ -388,6 +387,7 @@ _start:
 
     xor                 eax, eax
     xor                 r15, r15                        ; final n
+    xor                 r10, r10
     
 .parse_iteration_count_digit:
     mov                 al, [r8]                        ; parsed character
@@ -405,6 +405,11 @@ _start:
     imul                r15, 10
     add                 r15, rax
     
+    ; TODO: Explain why this r10d
+    mov                 r10d, N_MAX
+    cmp                 r15, r10
+    ja                  .free_input_buffer_and_quit     ; n too big
+
     inc                 r8
     jmp                 .parse_iteration_count_digit
 
