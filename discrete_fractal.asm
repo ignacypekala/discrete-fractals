@@ -291,12 +291,14 @@ _start:
     jmp                 .load_input
 
 .scan_input:
-    xor rdx, rdx                                        ; scan iterator
+    xor                 rdx, rdx                        ; scan iterator
+    mov                 r8, r14
 
 .scan_first_line:
-    SCAN_LINE           rbp, rdx, r14, .free_input_buffer_and_quit 
+    SCAN_LINE           rbp, rdx, r8, .free_input_buffer_and_quit 
+    inc                 rcx
     add                 rdx, rcx                        ; advance offset
-    inc                 rdx                             ; first byte after line break
+    sub                 r8, rcx                         ; update scan limit
     cmp                 al, LINE_BREAK
     jne                 .scan_first_line                ; line break not found
 
