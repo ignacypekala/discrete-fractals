@@ -237,6 +237,7 @@ ERROR_CODE              equ 1
     sub                 %1, rax
     jmp %%flush_write_buffer                            ; reattempt flush
 %%return:
+    sub                 %1, rax
 %endmacro
 
 
