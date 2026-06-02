@@ -1,0 +1,4 @@
+ABC
+AB
+BC
+CA
