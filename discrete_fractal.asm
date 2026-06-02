@@ -348,7 +348,7 @@ _start:
     mov                 al, [r11]                       ; rule character
 
     test                rcx, rcx
-    jz                  .continue_registration          ; the rule is empty
+    jz                  .free_input_buffer_and_quit     ; the rule is empty
     inc                 r11
     dec                 rcx                             ; skip the rule character
 
