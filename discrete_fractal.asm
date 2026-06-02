@@ -2,6 +2,7 @@ global _start
 
 SYS_EXIT                equ 60
 SYS_READ                equ 0
+SYS_WRITE               equ 1
 SYS_BRK                 equ 12
 SYS_MMAP                equ 9
 SYS_MREMAP              equ 25
