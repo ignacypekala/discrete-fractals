@@ -453,8 +453,7 @@ _start:
     jnz                 .continue_recursion
 
 .write_remaining_output:
-    test                r9, r9
-    jz                  .end                            ; write buffer empty
+    WRITE               r9, LINE_BREAK, .free_stack_and_input_from_memory
     FLUSH               r9, .free_stack_and_input_from_memory
 
 .end:
