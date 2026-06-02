@@ -140,7 +140,7 @@ ERROR_CODE              equ 1
 ; Affected registers (on normal return):
 ;   rax - al contains the line break character, or 0 if the read limit was reached.
 ;   rcx - number of bytes scanned (index of the line break, or exactly %3 if limit reached)
-;   r11 - end of buffer pointer (%1 + %2 + %3)
+;   r11 - max read pointer (%1 + %2 + %3)
 ;
 ; Affected registers (on jump to %4):
 ;   rax - al contains the invalid character that triggered the jump.
