@@ -416,7 +416,7 @@ _start:
     ; Push the initial execution on the input string.
     mov                 r9, [rel first_line_length]
     test                r9, r9
-    jz                  .end         ; there is nothing to print
+    jz                  .write_remaining_output         ; there is nothing to print
     PUSH                rsp, r13, r12, rbp, 0, r9, .free_stack_and_input_from_memory
 
     xor                 r14, r14                        ; character store
