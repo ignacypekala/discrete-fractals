@@ -252,7 +252,6 @@ rules_registry:         resb RULE_REGISTRY_TOTAL_SIZE
 
 alignb                  FRAME_SIZE
 write_buffer:           resb WRITE_BUFFER_SIZE
-write_buffer_offset     resq 1
 
 section .text
 
@@ -377,10 +376,11 @@ _start:
     ; Push the initial execution on the input string.
     mov                 r9, [rel first_line_length]
     test                r9, r9
-    jz                  .write_remaining_output
+    jz                  .end         ; there is nothing to print
     PUSH                rsp, r13, r12, rbp, 0, r9, .free_stack_and_input_from_memory
 
     xor                 r14, r14                        ; character store
+    xor                 r9, r9                          ; write buffer offset
 
 .process_character:
     lea                 rbp, [rsp + r13 - STACK_ENTRY_SIZE]     ; stack top pointer
@@ -435,7 +435,7 @@ _start:
 
 .write_remaining_output:
     test                r9, r9
-    jz                  .end
+    jz                  .end                            ; write buffer empty
     FLUSH               r9, .free_stack_and_input_from_memory
 
 .end:
