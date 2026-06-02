@@ -372,6 +372,7 @@ _start:
     cmp                 rdx, r14
     jb                  .register_rule                  ; There are still rules to register.
 
+.save_input_buffer:
     ; Save input buffer state
     mov                 [rel input_buffer], rbp
     mov                 [rel input_buffer_size], r12    ; not needed until cleanup
@@ -379,6 +380,10 @@ _start:
 
     ; Parse the iteration count
     pop                 r8                              ; iteration count string pointer
+    mov                 al, byte [r8]
+    test                al, al                        
+    jz                  .free_input_buffer_and_quit     ; the string is empty
+
     xor                 eax, eax
     xor                 r15, r15                        ; final n
     
