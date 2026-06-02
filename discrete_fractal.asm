@@ -355,6 +355,11 @@ _start:
     mov                 rsi, rax                        
     sub                 rsi, ASCII_START                ; registry character index
     shl                 rsi, 4                          ; registry character offset
+
+    mov                 rax, [rbx + rsi]
+    test                rax, rax
+    jnz                 .free_input_buffer_and_quit     ; duplicate rule
+    
     mov                 [rbx + rsi], r11                ; start pointer
     mov                 [rbx + rsi + 8], rcx            ; length
     
