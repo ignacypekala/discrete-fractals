@@ -365,7 +365,7 @@ _start:
     inc                 r8
     jmp                 .parse_iteration_count_digit
 
-.prepare_for_main_processing:
+    xor                 r9, r9                          ; write buffer offset
 
 .prepare_for_main_processing:
     ; Allocate the "stack" on the heap. Discard the system stack in favor of the heap one.
