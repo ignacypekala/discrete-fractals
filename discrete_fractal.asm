@@ -380,17 +380,19 @@ _start:
     jz                  .write_remaining_output
     PUSH                rsp, r13, r12, rbp, 0, r9, .free_stack_and_input_from_memory
 
+    xor                 r14, r14                        ; character store
+
 .process_character:
     lea                 rbp, [rsp + r13 - STACK_ENTRY_SIZE]     ; stack top pointer
     mov                 rcx, [rbp + 8]                          ; character index
     inc                 qword [rbp + 8]                         ; mark character as handled
 
     mov                 r11, [rbp]                      ; base pointer
-    xor                 rax, rax
-    mov                 al, [r11 + rcx]                 ; character
+    mov                 r14b, [r11 + rcx]               ; string character
+    ; TODO: change rax to r14b everywhere
 
     ; Identify the rule
-    mov                 rcx, rax
+    mov                 rcx, r14
     sub                 rcx, ASCII_START                ; character index
     shl                 rcx, 4                          ; character offset
     mov                 rdi, [rbx + rcx]                ; rule pointer
@@ -414,12 +416,12 @@ _start:
 .write_char:
     cmp                 r9, WRITE_BUFFER_SIZE
     jb                  .append_character              ; sufficient space
-
-    
+    FLUSH               r9, .free_stack_and_input_from_memory    
    
 .append_character:
-    mov                 r11, [rel write_buffer]
-    ; TODO: Implement
+    lea                 r11, [rel write_buffer]
+    mov                 [r11 + r9], r14b
+    inc                 r9
 
 .continue_recursion:
     mov                 rcx, [rbp + 8]                  ; character index
