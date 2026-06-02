@@ -232,10 +232,10 @@ ERROR_CODE              equ 1
     test                rax, rax
     jb                  %2
     cmp                 rax, %1
-    jz                  %%return               ; buffer flushed completely
+    jz                  %%return                        ; buffer flushed completely
     add                 rsi, rax 
     sub                 %1, rax
-    jmp %%flush_write_buffer                             ; reattempt flush
+    jmp %%flush_write_buffer                            ; reattempt flush
 %%return:
 %endmacro
 
