@@ -42,18 +42,18 @@ ERROR_CODE              equ 1
 ; Allocate INITIAL_BUFFER_SIZE bytes of anonymous memory via sys_mmap. Jump to %1 on failure.
 ;
 ; Parameters:
-;       %1 - error jump label                           (label)
-;       %2 - address hint                               (r/m64/imm)
+;   %1 - error jump label                           (label)
+;   %2 - address hint                               (r/m64/imm)
 ;
 ; Affected registers:
-;       rax - pointer to the allocated block (or negative error code after jump)
-;       rdi - address hint
-;       rsi - buffer size
-;       rdx - protection flags
-;       r10 - map flags
-;       r8  - -1
-;       r9  - 0
-;       rcx, r11 - clobbered by syscall
+;   rax - pointer to the allocated block (or negative error code after jump)
+;   rdi - address hint
+;   rsi - buffer size
+;   rdx - protection flags
+;   r10 - map flags
+;   r8  - -1
+;   r9  - 0
+;   rcx, r11 - clobbered by syscall
 ;
 %macro MALLOC 2
     mov                 rax, SYS_MMAP
@@ -73,17 +73,17 @@ ERROR_CODE              equ 1
 ; allocation failure. Overwrite the provided address and size operands upon success.
 ;
 ; Parameters:
-;       %1 - original address                           (r/m64)
-;       %2 - original size                              (r/m64)
-;       %3 - error jump label                           (label)
+;   %1 - original address                           (r/m64)
+;   %2 - original size                              (r/m64)
+;   %3 - error jump label                           (label)
 ;
 ; Affected registers:
-;       rax - pointer to the reallocated block (or negative error code after jump)
-;       rdi - original address
-;       rsi - original size
-;       rdx - new size (%2 * 2)
-;       r10 - mremap flags
-;       rcx, r11 - clobbered by syscall
+;   rax - pointer to the reallocated block (or negative error code after jump)
+;   rdi - original address
+;   rsi - original size
+;   rdx - new size (%2 * 2)
+;   r10 - mremap flags
+;   rcx, r11 - clobbered by syscall
 ;
 %macro REALLOC 3
     mov                 rax, SYS_MREMAP
@@ -103,17 +103,17 @@ ERROR_CODE              equ 1
 ; Read data from stdin into a buffer. Jump to a designated label on read errors.
 ;
 ; Parameters:
-;       %1 - base address                               (r64)
-;       %2 - offset                                     (r64)
-;       %3 - total buffer size                          (r/m64/imm)
-;       %4 - error jump label                           (label)
+;   %1 - base address                               (r64)
+;   %2 - offset                                     (r64)
+;   %3 - total buffer size                          (r/m64/imm)
+;   %4 - error jump label                           (label)
 ;
 ; Affected registers:
-;       rax - number of bytes read (or negative error code before jump)
-;       rdi - 0
-;       rsi - buffer write start pointer (%1 + %2)
-;       rdx - maximum bytes to read (%3 - %2)
-;       rcx, r11 - clobbered by syscall
+;   rax - number of bytes read (or negative error code before jump)
+;   rdi - 0
+;   rsi - buffer write start pointer (%1 + %2)
+;   rdx - maximum bytes to read (%3 - %2)
+;   rcx, r11 - clobbered by syscall
 ;
 %macro READ 4
     mov                 rax, SYS_READ
@@ -132,19 +132,19 @@ ERROR_CODE              equ 1
 ; an invalid character is encountered.
 ;
 ; Parameters:
-;       %1 - base address                               (r64)
-;       %2 - offset                                     (r64)
-;       %3 - read length limit                          (r64/imm)
-;       %4 - invalid character jump label               (label)
+;   %1 - base address                               (r64)
+;   %2 - offset                                     (r64)
+;   %3 - read length limit                          (r64/imm)
+;   %4 - invalid character jump label               (label)
 ;
 ; Affected registers (on normal return):
-;       rax - al contains the line break character, or 0 if the read limit was reached.
-;       rcx - number of bytes scanned (index of the line break, or exactly %3 if limit reached)
-;       r11 - end of buffer pointer (%1 + %2 + %3)
+;   rax - al contains the line break character, or 0 if the read limit was reached.
+;   rcx - number of bytes scanned (index of the line break, or exactly %3 if limit reached)
+;   r11 - end of buffer pointer (%1 + %2 + %3)
 ;
 ; Affected registers (on jump to %4):
-;       rax - al contains the invalid character that triggered the jump.
-;       rcx - absolute memory pointer to the invalid character
+;   rax - al contains the invalid character that triggered the jump.
+;   rcx - absolute memory pointer to the invalid character
 ;
 %macro SCAN_LINE 4
     lea                 rcx, [%1 + %2]                  ; start pointer
@@ -177,19 +177,19 @@ ERROR_CODE              equ 1
 ; Reallocate the buffer if there is is no space of another set of three.
 ;
 ; Parameters:
-;       %1 - base pointer                               (r64)
-;       %2 - current offset                             (r64)
-;       %3 - total buffer size                          (r64)
-;       %4 - value 1                                    (r64/imm)
-;       %5 - value 2                                    (r64/imm)
-;       %6 - value 3                                    (r64/imm)
-;       %7 - reallocation failure jump label            (label)
+;   %1 - base pointer                               (r64)
+;   %2 - current offset                             (r64)
+;   %3 - total buffer size                          (r64)
+;   %4 - value 1                                    (r64/imm)
+;   %5 - value 2                                    (r64/imm)
+;   %6 - value 3                                    (r64/imm)
+;   %7 - reallocation failure jump label            (label)
 ;
 ; Affected registers:
-;       rcx, r11 - clobbered
-;       %1  - updated on reallocation
-;       %3  - increased on reallocation
-;       %2  - moved up by STACK_ENTRY_SIZE
+;   rcx, r11 - clobbered
+;   %1  - updated on reallocation
+;   %3  - increased on reallocation
+;   %2  - moved up by STACK_ENTRY_SIZE
 ;
 %macro PUSH 7
     lea                 rcx, [%1 + %2]
@@ -209,10 +209,10 @@ ERROR_CODE              equ 1
 ; Decrement the stack offset. Mostly a visual counterpart to PUSH.
 ;
 ; Parameters:
-;       %1 - current offset                             (r/m64)
+;   %1 - current offset                             (r/m64)
 ; 
 ; Affected registers:
-;       %1 - decreased by STACK_ENTRY_SIZE
+;   %1 - decreased by STACK_ENTRY_SIZE
 ;
 %macro POP 1
     sub                 %1, STACK_ENTRY_SIZE 
@@ -223,13 +223,13 @@ ERROR_CODE              equ 1
 ; Flush the write buffer to std_out. Reattempt on partial writes.
 ;
 ; Parameters:
-;       %1 - current write buffer offset                (r/m64)
-;       %2 - write error jump label                     (label)
+;   %1 - current write buffer offset                (r/m64)
+;   %2 - write error jump label                     (label)
 ;
 ; Affected registers:
-;       rcx, r11, rax, rdi - clobbered
-;       rsi - pointer to the character following the last read (write_buffer + WRITE_BUFFER_SIZE on success)
-;       %1 - number of bytes left to read
+;   rcx, r11, rax, rdi - clobbered
+;   rsi - pointer to the character following the last read (write_buffer + WRITE_BUFFER_SIZE on success)
+;   %1 - number of bytes left to read
 ;  
 %macro FLUSH 2
 %%flush_write_buffer:
@@ -256,14 +256,14 @@ ERROR_CODE              equ 1
 ; flush failures.
 ;
 ; Parameters:
-;       %1 - write buffer offset                        (r64)
-;       %2 - character to write                         (r8/imm8)
-;       %3 - flush error jump label                     (label)
+;   %1 - write buffer offset                        (r64)
+;   %2 - character to write                         (r8/imm8)
+;   %3 - flush error jump label                     (label)
 ;
 ; Affected registers:
-;       r11 - clobbered (used to load the write buffer base pointer)
-;       %1  - incremented by 1 (or reset to 1 if a buffer flush is triggered)
-;       rax, rcx, rdx, rdi, rsi - conditionally clobbered if FLUSH is invoked
+;   r11 - clobbered (used to load the write buffer base pointer)
+;   %1  - incremented by 1 (or reset to 1 if a buffer flush is triggered)
+;   rax, rcx, rdx, rdi, rsi - conditionally clobbered if FLUSH is invoked
 ;
 %macro WRITE 3
     cmp                 %1, WRITE_BUFFER_SIZE
@@ -292,11 +292,11 @@ section .text
 
 ;
 ; Registers:
-;  rax, rdi, rsi, rdx, r10, r8, r9 - syscall parameters or localized scratchpads
-;  rcx, r11 - localized scratchpads often clobbered by syscalls
-;  rbp, rbx - buffer pointers
-;  r12, r13, r14 - buffer states
-;  r15 - scratchpad
+;   rax, rdi, rsi, rdx, r10, r8, r9 - syscall parameters or localized scratchpads
+;   rcx, r11 - localized scratchpads often clobbered by syscalls
+;   rbp, rbx - buffer pointers
+;   r12, r13, r14 - buffer states
+;   r15 - scratchpad
 ;
 
 _start:
