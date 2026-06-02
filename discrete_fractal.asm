@@ -42,8 +42,8 @@ ERROR_CODE              equ 1
 ; Allocate INITIAL_BUFFER_SIZE bytes of anonymous memory via sys_mmap. Jump to %1 on failure.
 ;
 ; Parameters:
-;  %1 - error jump label,
-;  %2 - address hint.
+;       %1 - error jump label                           (label)
+;       %2 - address hint                               (r/m64/imm)
 ;
 ; Affected registers:
 ;  rax - pointer to the allocated block (or negative error code after jump)
@@ -73,9 +73,9 @@ ERROR_CODE              equ 1
 ; allocation failure. Overwrite the provided address and size operands upon success.
 ;
 ; Parameters:
-;  %1 - original address
-;  %2 - original size
-;  %3 - error jump label
+;       %1 - original address                           (r/m64)
+;       %2 - original size                              (r/m64)
+;       %3 - error jump label                           (label)
 ;
 ; Affected registers:
 ;  rax - pointer to the reallocated block (or negative error code after jump)
@@ -103,10 +103,10 @@ ERROR_CODE              equ 1
 ; Read data from stdin into a buffer. Jump to a designated label on read errors.
 ;
 ; Parameters:
-;  %1 - base address
-;  %2 - offset
-;  %3 - total buffer size
-;  %4 - error jump label
+;       %1 - base address                               (r64)
+;       %2 - offset                                     (r64)
+;       %3 - total buffer size                          (r/m64/imm)
+;       %4 - error jump label                           (label)
 ;
 ; Affected registers:
 ;  rax - number of bytes read (or negative error code before jump)
@@ -132,10 +132,10 @@ ERROR_CODE              equ 1
 ; an invalid character is encountered.
 ;
 ; Parameters:
-;  %1 - base address
-;  %2 - offset
-;  %3 - read length limit
-;  %4 - invalid character jump label
+;       %1 - base address                               (r64)
+;       %2 - offset                                     (r64)
+;       %3 - read length limit                          (r64/imm)
+;       %4 - invalid character jump label               (label)
 ;
 ; Affected registers (on normal return):
 ;  rax - al contains the line break character, or 0 if the read limit was reached.
@@ -177,13 +177,13 @@ ERROR_CODE              equ 1
 ; Reallocate the buffer if there is is no space of another set of three.
 ;
 ; Parameters:
-;  %1 - base pointer
-;  %2 - current offset
-;  %3 - total buffer size
-;  %4 - value 1
-;  %5 - value 2
-;  %6 - value 3
-;  %7 - reallocation failure jump label
+;       %1 - base pointer                               (r64)
+;       %2 - current offset                             (r64)
+;       %3 - total buffer size                          (r64)
+;       %4 - value 1                                    (r64/imm)
+;       %5 - value 2                                    (r64/imm)
+;       %6 - value 3                                    (r64/imm)
+;       %7 - reallocation failure jump label            (label)
 ;
 ; Affected registers:
 ;  rcx, r11 - clobbered
@@ -209,7 +209,7 @@ ERROR_CODE              equ 1
 ; Decrement the stack offset. Mostly a visual counterpart to PUSH.
 ;
 ; Parameters:
-;  %1 - current offset (decreased by STACK_ENTRY_SIZE)
+;       %1 - current offset                             (r/m64)
 ; 
 ; Affected registers:
 ;  %1 - decreased by STACK_ENTRY_SIZE
@@ -223,8 +223,8 @@ ERROR_CODE              equ 1
 ; Flush the write buffer to std_out. Reattempt on partial writes.
 ;
 ; Parameters:
-;  %1 - current write buffer offset
-;  %2 - write error jump label
+;       %1 - current write buffer offset                (r/m64)
+;       %2 - write error jump label                     (label)
 ;
 ; Affected registers:
 ;  rcx, r11, rax, rdi - clobbered
@@ -256,9 +256,9 @@ ERROR_CODE              equ 1
 ; flush failures.
 ;
 ; Parameters:
-;  %1 - write buffer offset
-;  %2 - character to write
-;  %3 - flush error jump label
+;       %1 - write buffer offset                        (r64)
+;       %2 - character to write                         (r8/imm8)
+;       %3 - flush error jump label                     (label)
 ;
 ; Affected registers:
 ;  r11 - clobbered (used to load the write buffer base pointer)
