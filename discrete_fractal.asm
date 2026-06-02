@@ -411,16 +411,14 @@ _start:
     jmp                 .process_character
 
 .write_char:
-;     mov                 rcx, [rel write_buffer_offset]
-;     cmp                 rcx, WRITE_BUFFER_SIZE
-;     jb                  %%append_character              ; sufficient space
-;
-;     mov                 rsi, [rel write_buffer]
-;
-;    
-; .append_character:
-;     mov                 r11, [rel write_buffer]
-;     ; TODO: Implement
+    cmp                 r9, WRITE_BUFFER_SIZE
+    jb                  .append_character              ; sufficient space
+
+    
+   
+.append_character:
+    mov                 r11, [rel write_buffer]
+    ; TODO: Implement
 
 .continue_recursion:
     mov                 rcx, [rbp + 8]                  ; character index
