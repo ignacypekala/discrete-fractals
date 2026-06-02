@@ -26,9 +26,9 @@ ASCII_END               equ 126
 
 FRAME_SIZE              equ 4096
 
-INITIAL_BUFFER_SIZE             equ FRAME_SIZE
+INITIAL_BUFFER_SIZE     equ FRAME_SIZE
 
-WRITE_BUFFER_SIZE               equ 64 * FRAME_SIZE
+WRITE_BUFFER_SIZE       equ 64 * FRAME_SIZE
 
 RULE_REGISTRY_ENTRY_SIZE        equ 8 * 2                  ; base pointer + rule length
 RULE_REGISTRY_TOTAL_SIZE        equ (ASCII_END - ASCII_START + 1) * RULE_REGISTRY_ENTRY_SIZE
