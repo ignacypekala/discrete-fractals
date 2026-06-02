@@ -325,19 +325,14 @@ _start:
 
 .scan_input:
     xor                 rdx, rdx                        ; scan iterator
-    mov                 r8, r14
-
-.scan_first_line:
-    SCAN_LINE           rbp, rdx, r8, .free_input_buffer_and_quit 
+    SCAN_LINE           rbp, rdx, r14, .free_input_buffer_and_quit 
+    cmp                 al, LINE_BREAK
+    jne                 .free_input_buffer_and_quit     ; line break not found
     add                 rdx, rcx                        ; advance offset
     sub                 r8, rcx                         ; update scan limit
-    cmp                 al, LINE_BREAK
-    jne                 .scan_first_line                ; line break not found
-
     inc                 rdx                             ; skip line break
-    dec                 r8
+    dec                 r8                              ; update scan limit
 
-    lea                 rcx, [rdx - 1]
     mov                 [rel first_line_length], rcx
 
 .build_rules_registry:
