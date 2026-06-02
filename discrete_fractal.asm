@@ -239,7 +239,7 @@ ERROR_CODE              equ 1
     mov                 rdx, %1
     syscall
     test                rax, rax
-    jb                  %2
+    js                  %2
     cmp                 rax, %1
     jz                  %%return                        ; buffer flushed completely
     add                 rsi, rax 
