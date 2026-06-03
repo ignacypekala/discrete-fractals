@@ -252,6 +252,17 @@ ERROR_CODE              equ 1
 ; Free a block of memory allocated with sys_mmap, without error handling.
 ; Error handling is ommitted because this macro is only used at the end of execution, either upon
 ; error or right before a successful execution.
+;
+; Parameters:
+;   %1 - base address                                   (r/m64)
+;   %2 - block size                                     (r/m64)
+;
+; Affected registers:
+;   rax - sys_munmap return value
+;   rdi - %1
+;   rsi - %2
+;   rcx, r11 - clobbered by syscall
+;
 %macro FREE 2
     mov                 rax, SYS_MUNMAP
     mov                 rdi, %1
