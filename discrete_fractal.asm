@@ -51,7 +51,7 @@ BASE_ALLOC_SIZE         equ PAGE_SIZE
 REGISTRY_ENTRY_SIZE     equ 8 * 2                       ; base pointer + rule length
 REGISTRY_TOTAL_SIZE     equ (MAX_SYMBOL_ASCII - MIN_SYMBOL_ASCII + 1) * REGISTRY_ENTRY_SIZE
 
-STACK_ENTRY_SIZE        equ 8 * 3                       ; base pointer + string length + current index
+STACK_ENTRY_SIZE        equ 8 * 3                       ; base pointer + current index + string length 
 
 EXPECTED_ARGC           equ 2                           ; program name + iteration count
 EXIT_FAILURE            equ 1
@@ -219,7 +219,8 @@ EXIT_FAILURE            equ 1
 ;
 ; Affected registers:
 ;   rcx, r11, rax, rdi - clobbered
-;   rsi - pointer to the character following the last read (write_buffer + OUTPUT_CHUNK_SIZE on success)
+;   rsi - pointer to the character following the last write (write_buffer + OUTPUT_CHUNK_SIZE on success)
+;   rdx - passed %1
 ;   %1 - number of bytes left to read
 ;  
 %macro FLUSH 2
@@ -468,7 +469,7 @@ _start:
     sub                 al, '0'
     jb                  .free_input_buffer_and_quit     ; outside numeric ascii range
     
-    ; The maximum intermediate result (2^32 - 1) easily fits within the 
+    ; The maximum final result (2^32 - 1) easily fits within the 
     ; 64-bit register, guaranteeing imul will never truncate the value. 
     ; Additionally, because the sign bit always remains 0, imul safely 
     ; treats it as a positive integer, perfectly mirroring unsigned math.
