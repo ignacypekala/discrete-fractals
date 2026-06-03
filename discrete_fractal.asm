@@ -418,9 +418,10 @@ _start:
     jmp                 .parse_iteration_count_digit
 
 .prepare_for_main_processing:
-    ; Allocate the "stack" on the heap. Discard the system stack in favor of the heap one.
+    mov                 r14, rbp
+    ; Allocate a "stack" on the heap.
     MALLOC              .free_input_buffer_and_quit
-    mov                 rsp, rax                        ; base pointer
+    mov                 rbp, rax                        ; base pointer
     mov                 r12, rsi                        ; total size
     xor                 r13, r13                        ; current offset
 
@@ -428,17 +429,17 @@ _start:
     mov                 r9, [rel first_line_length]
     test                r9, r9
     jz                  .write_remaining_output         ; there is nothing to print
-    PUSH                rsp, r13, r12, rbp, 0, r9, .free_both_buffers_and_quit
+    PUSH                rbp, r13, r12, r14, 0, r9, .free_both_buffers_and_quit
 
     xor                 r14, r14                        ; character store
     xor                 r9, r9                          ; write buffer offset
 
 .process_character:
-    lea                 rbp, [rsp + r13 - STACK_ENTRY_SIZE]     ; stack top pointer
-    mov                 rcx, [rbp + 8]                          ; character index
-    inc                 qword [rbp + 8]                         ; mark character as handled
+    lea                 r11, [rbp + r13 - STACK_ENTRY_SIZE]     ; stack top pointer
+    mov                 rcx, [r11 + 8]                          ; character index
+    inc                 qword [r11 + 8]                         ; mark character as handled
 
-    mov                 r11, [rbp]                      ; base pointer
+    mov                 r11, qword [r11]                ; base pointer
     mov                 r14b, [r11 + rcx]               ; string character
 
     ; Identify the rule
@@ -459,7 +460,7 @@ _start:
     jz                  .continue_recursion             ; the rule is empty
 
     ; Push an execution on this rule.
-    PUSH                rsp, r13, r12, rdi, 0, rdx, .free_both_buffers_and_quit
+    PUSH                rbp, r13, r12, rdi, 0, rdx, .free_both_buffers_and_quit
     dec                 r15                             ; recursion depth counter
     jmp                 .process_character
 
@@ -467,13 +468,13 @@ _start:
     WRITE               r9, r14b, .free_both_buffers_and_quit
 
 .continue_recursion:
-    mov                 rcx, [rbp + 8]                  ; character index
-    cmp                 rcx, [rbp + 16]                 ; string length
-    jb                  .process_character              ; the top recursive call is not completed
+    lea                 r11, [rbp + r13 - STACK_ENTRY_SIZE]     ; stack top pointer
+    mov                 rcx, [r11 + 8]                          ; character index
+    cmp                 rcx, [r11 + 16]                         ; string length
+    jb                  .process_character                      ; the top recursive call is not completed
 
     POP                 r13
     inc                 r15                             ; recursion depth counter
-    sub                 rbp, STACK_ENTRY_SIZE           ; correct stack top pointer
     test                r13, r13
     jnz                 .continue_recursion
 
@@ -481,7 +482,7 @@ _start:
     WRITE               r9, LINE_BREAK, .free_both_buffers_and_quit
     FLUSH               r9, .free_both_buffers_and_quit
 
-    FREE                rsp, r12
+    FREE                rbp, r12
     mov                 rbp, [rel input_buffer]
     mov                 r12, [rel input_buffer_size]
     FREE                rbp, r12
@@ -491,7 +492,7 @@ _start:
     syscall
 
 .free_both_buffers_and_quit:
-    FREE                rsp, r12
+    FREE                rbp, r12
     ; Load input string buffer for subsequent free.
     mov                 rbp, [rel input_buffer]
     mov                 r12, [rel input_buffer_size]
