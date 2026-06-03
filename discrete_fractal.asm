@@ -221,7 +221,7 @@ EXIT_FAILURE            equ 1
 ;   rcx, r11, rax, rdi - clobbered
 ;   rsi - pointer to the character following the last write (write_buffer + OUTPUT_CHUNK_SIZE on success)
 ;   rdx - passed %1
-;   %1 - number of bytes left to read
+;   %1 - number of bytes left to write
 ;  
 %macro FLUSH 2
     mov                 eax, SYS_WRITE
