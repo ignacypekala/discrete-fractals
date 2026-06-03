@@ -43,7 +43,7 @@ STD_OUT                 equ 1
 LINE_BREAK              equ 10
 MIN_SYMBOL_ASCII        equ 33
 MAX_SYMBOL_ASCII        equ 126
-OUTPUT_CHUNK_SIZE       equ 64 * 1000
+OUTPUT_CHUNK_SIZE       equ 64 * 1024
 
 PAGE_SIZE               equ 4096
 BASE_ALLOC_SIZE         equ PAGE_SIZE
