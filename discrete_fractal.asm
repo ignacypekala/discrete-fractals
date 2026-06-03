@@ -43,11 +43,10 @@ ERROR_CODE              equ 1
 ;
 ; Parameters:
 ;   %1 - error jump label                               (label)
-;   %2 - address hint                                   (r/m64/imm)
 ;
 ; Affected registers:
 ;   rax - pointer to the allocated block (or negative error code after jump)
-;   rdi - address hint
+;   rdi - 0
 ;   rsi - buffer size
 ;   rdx - protection flags
 ;   r10 - map flags
@@ -55,9 +54,9 @@ ERROR_CODE              equ 1
 ;   r9  - 0
 ;   rcx, r11 - clobbered by syscall
 ;
-%macro MALLOC 2
+%macro MALLOC 1
     mov                 rax, SYS_MMAP
-    mov                 rdi, %2                         ; address hint
+    xor                 rdi, rdi                        ; address hint
     mov                 rsi, INITIAL_BUFFER_SIZE
     mov                 edx, PROT_READ | PROT_WRITE
     mov                 r10, MAP_PRIVATE | MAP_ANONYMOUS
@@ -303,7 +302,7 @@ _start:
 
     ; Allocate input buffer.
     ; TODO: Manage the address hints
-    MALLOC              .error_exit, 0
+    MALLOC              .error_exit
 
     ; Initialize the input buffer state.
     mov                 rbp, rax                        ; base address
@@ -420,7 +419,7 @@ _start:
 
 .prepare_for_main_processing:
     ; Allocate the "stack" on the heap. Discard the system stack in favor of the heap one.
-    MALLOC              .free_input_buffer_and_quit, 0  
+    MALLOC              .free_input_buffer_and_quit
     mov                 rsp, rax                        ; base pointer
     mov                 r12, rsi                        ; total size
     xor                 r13, r13                        ; current offset
