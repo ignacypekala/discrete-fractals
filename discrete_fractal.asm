@@ -141,6 +141,7 @@ EXIT_FAILURE            equ 1
     lea                 r11, [rcx + %3]                 ; end pointer
     xor                 eax, eax                        ; clear register for scanned byte
 
+    align 16
 %%scan_character:
     cmp                 rcx, r11
     jz                  %%return                        ; read limit reached
@@ -521,6 +522,7 @@ _start:
 ;   r9  - stdout write buffer offset
 ;   rbx - rules registry base pointer
 ;
+    align               16
 .evaluate_character:
     lea                 r11, [rbp + r13 - STACK_ENTRY_SIZE]     ; active frame pointer
     mov                 rcx, [r11 + 8]                          ; current character index
@@ -558,6 +560,7 @@ _start:
 ; jumps back to evaluate the next character. Otherwise, pops the frame and 
 ; restores the parent recursion state.
 ;
+    align               16
 .resume_parent_frame:
     lea                 r11, [rbp + r13 - STACK_ENTRY_SIZE]     ; active frame pointer
     mov                 rcx, [r11 + 8]                          ; current character index
