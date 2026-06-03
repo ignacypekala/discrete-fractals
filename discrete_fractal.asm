@@ -218,14 +218,14 @@ EXIT_FAILURE            equ 1
 ;
 ; Affected registers:
 ;   rcx, r11, rax, rdi - clobbered
-;   rsi - pointer to the character following the last read (stdout_flush_buffer + OUTPUT_CHUNK_SIZE on success)
+;   rsi - pointer to the character following the last read (write_buffer + OUTPUT_CHUNK_SIZE on success)
 ;   %1 - number of bytes left to read
 ;  
 %macro FLUSH 2
-%%flush_stdout_flush_buffer:
+%%flush_write_buffer:
     mov                 eax, SYS_WRITE
     mov                 edi, STD_OUT
-    lea                 rsi, [rel stdout_flush_buffer]
+    lea                 rsi, [rel write_buffer]
     mov                 rdx, %1
     syscall
     test                rax, rax
@@ -234,7 +234,7 @@ EXIT_FAILURE            equ 1
     jz                  %%return                        ; entire buffer flushed
     add                 rsi, rax 
     sub                 %1, rax
-    jmp                 %%flush_stdout_flush_buffer     ; retry partial flush
+    jmp                 %%flush_write_buffer            ; retry partial flush
 %%return:
     sub                 %1, rax
 %endmacro
@@ -260,7 +260,7 @@ EXIT_FAILURE            equ 1
     jb                  %%append_character              ; capacity available
     FLUSH               %1, %3
 %%append_character:
-    lea                 r11, [rel stdout_flush_buffer]
+    lea                 r11, [rel write_buffer]
     mov                 [r11 + %1], byte %2
     inc                 %1
 %endmacro
@@ -297,7 +297,7 @@ alignb                  16
 rules_registry:         resb REGISTRY_TOTAL_SIZE
 
 alignb                  PAGE_SIZE
-stdout_flush_buffer:    resb OUTPUT_CHUNK_SIZE
+write_buffer:           resb OUTPUT_CHUNK_SIZE
 
 section .text
 
