@@ -35,32 +35,29 @@ MAP_PRIVATE             equ 0x02
 MAP_ANONYMOUS           equ 0x20
 MREMAP_MAYMOVE          equ 0x1
 
-EOF                     equ 0
-N_MAX                   equ 0xffffffff                  ; 2^32 - 1
+MAX_ITERATIONS          equ 0xffffffff                  ; 2^32 - 1
 
 STD_IN                  equ 0
 STD_OUT                 equ 1
 
 LINE_BREAK              equ 10
-ASCII_START             equ 33
-ASCII_END               equ 126
+MIN_SYMBOL_ASCII        equ 33
+MAX_SYMBOL_ASCII        equ 126
+OUTPUT_CHUNK_SIZE       equ 64 * 1000
 
-FRAME_SIZE              equ 4096
+PAGE_SIZE               equ 4096
+BASE_ALLOC_SIZE         equ PAGE_SIZE
 
-INITIAL_BUFFER_SIZE     equ FRAME_SIZE
-
-WRITE_BUFFER_SIZE       equ 64 * 1000
-
-RULE_REGISTRY_ENTRY_SIZE        equ 8 * 2               ; base pointer + rule length
-RULE_REGISTRY_TOTAL_SIZE        equ (ASCII_END - ASCII_START + 1) * RULE_REGISTRY_ENTRY_SIZE
+REGISTRY_ENTRY_SIZE     equ 8 * 2                       ; base pointer + rule length
+REGISTRY_TOTAL_SIZE     equ (MAX_SYMBOL_ASCII - MIN_SYMBOL_ASCII + 1) * REGISTRY_ENTRY_SIZE
 
 STACK_ENTRY_SIZE        equ 8 * 3                       ; base pointer + string length + current index
 
-PARAMETER_COUNT         equ 2                           ; program name + iteration count
-ERROR_CODE              equ 1
+EXPECTED_ARGC           equ 2                           ; program name + iteration count
+EXIT_FAILURE            equ 1
 
 ;
-; Allocate INITIAL_BUFFER_SIZE bytes of anonymous memory via sys_mmap. Jump to %1 on failure.
+; Allocate BASE_ALLOC_SIZE bytes of anonymous memory via sys_mmap. Jump to %1 on failure.
 ;
 ; Parameters:
 ;   %1 - error jump label                               (label)
@@ -78,7 +75,7 @@ ERROR_CODE              equ 1
 %macro MALLOC 1
     mov                 rax, SYS_MMAP
     xor                 rdi, rdi                        ; zero address hint to let os choose
-    mov                 rsi, INITIAL_BUFFER_SIZE
+    mov                 rsi, BASE_ALLOC_SIZE
     mov                 edx, PROT_READ | PROT_WRITE
     mov                 r10, MAP_PRIVATE | MAP_ANONYMOUS
     mov                 r8, -1                          ; file descriptor
@@ -151,9 +148,9 @@ ERROR_CODE              equ 1
     mov                 al, [rcx]                       ; current byte
     cmp                 al, LINE_BREAK
     je                  %%return                        ; line break found
-    cmp                 al, ASCII_START
+    cmp                 al, MIN_SYMBOL_ASCII
     jb                  %4                              ; below allowed ascii range
-    cmp                 al, ASCII_END
+    cmp                 al, MAX_SYMBOL_ASCII
     ja                  %4                              ; above allowed ascii range
 
     inc                 rcx
@@ -221,7 +218,7 @@ ERROR_CODE              equ 1
 ;
 ; Affected registers:
 ;   rcx, r11, rax, rdi - clobbered
-;   rsi - pointer to the character following the last read (write_buffer + WRITE_BUFFER_SIZE on success)
+;   rsi - pointer to the character following the last read (write_buffer + OUTPUT_CHUNK_SIZE on success)
 ;   %1 - number of bytes left to read
 ;  
 %macro FLUSH 2
@@ -259,7 +256,7 @@ ERROR_CODE              equ 1
 ;   rax, rcx, rdx, rdi, rsi - conditionally clobbered if FLUSH is invoked
 ;
 %macro WRITE 3
-    cmp                 %1, WRITE_BUFFER_SIZE
+    cmp                 %1, OUTPUT_CHUNK_SIZE
     jb                  %%append_character              ; capacity available
     FLUSH               %1, %3
 %%append_character:
@@ -298,10 +295,10 @@ input_buffer_offset:    resq 1
 
 first_line_length:      resq 1
 
-rules_registry:         resb RULE_REGISTRY_TOTAL_SIZE
+rules_registry:         resb REGISTRY_TOTAL_SIZE
 
-alignb                  FRAME_SIZE
-write_buffer:           resb WRITE_BUFFER_SIZE
+alignb                  PAGE_SIZE
+write_buffer:           resb OUTPUT_CHUNK_SIZE
 
 section .text
 
@@ -325,7 +322,7 @@ section .text
 _start:
     ; validate parameter count passed by os
     pop                 rax
-    cmp                 rax, PARAMETER_COUNT
+    cmp                 rax, EXPECTED_ARGC
     jnz                 .error_exit
     pop                 rax                             ; skip program name
 
@@ -418,7 +415,7 @@ _start:
 
     ; compute registry offset mapped to ascii value
     mov                 rsi, rax                        
-    sub                 rsi, ASCII_START                ; normalized registry index
+    sub                 rsi, MIN_SYMBOL_ASCII           ; normalized registry index
     shl                 rsi, 4                          ; scale by registry entry size (16 bytes)
 
     ; ensure rule uniqueness
@@ -480,7 +477,7 @@ _start:
     
     ; moving a 32-bit immediate into a 32-bit register zero-extends 
     ; it to 64 bits, allowing a valid 64-bit comparison against r15
-    mov                 r10d, N_MAX
+    mov                 r10d, MAX_ITERATIONS
     cmp                 r15, r10
     ja                  .free_input_buffer_and_quit     ; exceeds maximum supported depth
 
@@ -535,7 +532,7 @@ _start:
 
     ; calculate registry offset for target character
     mov                 rcx, r14
-    sub                 rcx, ASCII_START                ; normalized registry index
+    sub                 rcx, MIN_SYMBOL_ASCII           ; normalized registry index
     shl                 rcx, 4                          ; scale by registry entry size
     mov                 rdi, [rbx + rcx]                ; replacement rule pointer
 
@@ -596,5 +593,5 @@ _start:
 
 .error_exit:
     mov                 eax, SYS_EXIT
-    mov                 edi, ERROR_CODE
+    mov                 edi, EXIT_FAILURE
     syscall
