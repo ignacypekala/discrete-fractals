@@ -304,8 +304,9 @@ _start:
     jmp                 .load_input                     ; buffer filled, continue reading
 
 .scan_input:
+    mov                 r8, r14                         ; scan limit
     xor                 rdx, rdx                        ; scan iterator
-    SCAN_LINE           rbp, rdx, r14, .free_input_buffer_and_quit 
+    SCAN_LINE           rbp, rdx, r8, .free_input_buffer_and_quit 
     cmp                 al, LINE_BREAK
     jne                 .free_input_buffer_and_quit     ; line break not found
     mov                 [rel first_line_length], rcx
