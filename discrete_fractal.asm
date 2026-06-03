@@ -99,33 +99,6 @@ ERROR_CODE              equ 1
 %endmacro
 
 ;
-; Read data from stdin into a buffer. Jump to a designated label on read errors.
-;
-; Parameters:
-;   %1 - base address                                   (r64)
-;   %2 - offset                                         (r64)
-;   %3 - total buffer size                              (r/m64/imm)
-;   %4 - error jump label                               (label)
-;
-; Affected registers:
-;   rax - number of bytes read (or negative error code before jump)
-;   rdi - 0
-;   rsi - buffer write start pointer (%1 + %2)
-;   rdx - maximum bytes to read (%3 - %2)
-;   rcx, r11 - clobbered by syscall
-;
-%macro READ 4
-    mov                 rax, SYS_READ
-    xor                 edi, edi                        ; stdin
-    lea                 rsi, [%1 + %2]                  ; address
-    mov                 rdx, %3
-    sub                 rdx, %2                         ; count
-    syscall
-    test                rax, rax
-    js                  %4
-%endmacro
-
-;
 ; Scan a buffer for the first occurrence of a line break, ensuring all characters 
 ; are within an allowed range during the process. Jump to a designated label if 
 ; an invalid character is encountered.
@@ -315,12 +288,20 @@ _start:
     xor                 r14, r14                        ; current offset
 
 .load_input:
-    READ                rbp, r14, r12, .free_input_buffer_and_quit 
+    mov                 rax, SYS_READ
+    xor                 edi, edi                        ; stdin
+    lea                 rsi, [rbp + r14]                ; address
+    mov                 rdx, r12
+    sub                 rdx, r14                        ; max read count
+    syscall
+    test                rax, rax
+    js                  .free_input_buffer_and_quit     ; read error
+    jz                  .scan_input                     ; eof
     add                 r14, rax                        ; advance offset
-    cmp                 rax, r12
-    jb                  .scan_input                     ; eof
+    cmp                 rax, rdx
+    jbe                  .load_input                     ; not all bytes read
     REALLOC             rbp, r12, .free_input_buffer_and_quit 
-    jmp                 .load_input
+    jmp                 .load_input                     ; buffer filled, continue reading
 
 .scan_input:
     xor                 rdx, rdx                        ; scan iterator
