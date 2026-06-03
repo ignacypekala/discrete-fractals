@@ -270,7 +270,7 @@ ERROR_CODE              equ 1
     FLUSH               %1, %3
 %%append_character:
     lea                 r11, [rel write_buffer]
-    mov                 [r11 + %1], %2
+    mov                 [r11 + %1], byte %2
     inc                 %1
 %endmacro
 
