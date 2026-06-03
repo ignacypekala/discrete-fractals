@@ -234,7 +234,7 @@ EXIT_FAILURE            equ 1
     jz                  %%return                        ; entire buffer flushed
     add                 rsi, rax 
     sub                 %1, rax
-    jmp                 %%flush_stdout_flush_buffer            ; retry partial flush
+    jmp                 %%flush_stdout_flush_buffer     ; retry partial flush
 %%return:
     sub                 %1, rax
 %endmacro
@@ -317,7 +317,7 @@ section .text
 ;
 
 _start:
-    ; validate parameter count passed by os
+    ; Validate parameter count passed by os.
     pop                 rax
     cmp                 rax, EXPECTED_ARGC
     jnz                 .error_exit
@@ -401,7 +401,7 @@ _start:
     test                rcx, rcx
     jz                  .free_input_buffer_and_quit     ; empty rule line detected
 
-    ; extract target character and validate rule body
+    ; Extract target character and validate rule body.
     lea                 r11, [rbp + rdx]                ; pointer to rule definition
     mov                 al, [r11]                       ; character to be replaced
 
@@ -410,17 +410,17 @@ _start:
     inc                 r11                             ; pointer to replacement string
     dec                 rcx                             ; string length excluding trigger char
 
-    ; compute registry offset mapped to ascii value
+    ; Compute registry offset mapped to ascii value.
     mov                 rsi, rax                        
     sub                 rsi, MIN_SYMBOL_ASCII           ; normalized registry index
     shl                 rsi, 4                          ; scale by registry entry size (16 bytes)
 
-    ; ensure rule uniqueness
+    ; Ensure rule uniqueness.
     mov                 rax, [rbx + rsi]
     test                rax, rax
     jnz                 .free_input_buffer_and_quit     ; multiple rules for same character
     
-    ; populate registry entry
+    ; Populate registry entry.
     mov                 [rbx + rsi], r11                ; replacement string pointer
     mov                 [rbx + rsi + 8], rcx            ; replacement string length
     
@@ -442,11 +442,11 @@ _start:
 ;   r12 - input buffer total capacity
 ;
 .finalize_input_parsing:
-    ; offload input state to memory, freeing registers for core logic
+    ; Offload input state to memory, freeing registers for core logic.
     mov                 [rel input_buffer_pointer], rbp
     mov                 [rel input_buffer_capacity], r12
     
-    ; extract recursion depth argument
+    ; Extract recursion depth argument.
     pop                 r8                              ; iteration count arg pointer
     mov                 al, byte [r8]
     test                al, al                        
@@ -472,8 +472,8 @@ _start:
     imul                r15, 10
     add                 r15, rax
     
-    ; moving a 32-bit immediate into a 32-bit register zero-extends 
-    ; it to 64 bits, allowing a valid 64-bit comparison against r15
+    ; Moving a 32-bit immediate into a 32-bit register zero-extends 
+    ; it to 64 bits, allowing a valid 64-bit comparison against r15.
     mov                 r10d, MAX_ITERATIONS
     cmp                 r15, r10
     ja                  .free_input_buffer_and_quit     ; exceeds maximum supported depth
@@ -497,7 +497,7 @@ _start:
     mov                 r12, rsi                        ; stack total capacity
     xor                 r13, r13                        ; stack current offset
 
-    ; bootstrap recursive evaluation
+    ; Bootstrap recursive evaluation.
     mov                 r9, [rel initial_string_length]
     test                r9, r9
     jz                  .write_remaining_output         ; abort if initial string empty
@@ -527,13 +527,13 @@ _start:
     mov                 r11, qword [r11]                ; string base pointer
     mov                 r14b, [r11 + rcx]               ; extract character to evaluate
 
-    ; calculate registry offset for target character
+    ; Calculate registry offset for target character.
     mov                 rcx, r14
     sub                 rcx, MIN_SYMBOL_ASCII           ; normalized registry index
     shl                 rcx, 4                          ; scale by registry entry size
     mov                 rdi, [rbx + rcx]                ; replacement rule pointer
 
-    ; determine recursive viability
+    ; Determine recursive viability.
     test                rdi, rdi
     jz                  .write_character                ; no replacement rule mapped
     test                r15, r15
@@ -543,7 +543,7 @@ _start:
     test                rdx, rdx
     jz                  .resume_parent_frame            ; rule replaces char with empty string
 
-    ; deploy child evaluation frame
+    ; Deploy child evaluation frame.
     PUSH                rbp, r13, r12, rdi, 0, rdx, .free_both_buffers_and_quit
     dec                 r15                             ; deduct recursion depth allowance
     jmp                 .evaluate_character
