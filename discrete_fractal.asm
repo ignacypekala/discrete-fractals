@@ -5,6 +5,7 @@ SYS_READ                equ 0
 SYS_WRITE               equ 1
 SYS_BRK                 equ 12
 SYS_MMAP                equ 9
+SYS_MUNMAP              equ 11
 SYS_MREMAP              equ 25
 
 PROT_READ               equ 0x1
@@ -247,6 +248,17 @@ ERROR_CODE              equ 1
     inc                 %1
 %endmacro
 
+;
+; Free a block of memory allocated with sys_mmap, without error handling.
+; Error handling is ommitted because this macro is only used at the end of execution, either upon
+; error or right before a successful execution.
+%macro FREE 2
+    mov                 rax, SYS_MUNMAP
+    mov                 rdi, %1
+    mov                 rsi, %2
+    syscall
+%endmacro
+
 section .bss
 
 input_buffer:           resq 1
@@ -359,7 +371,7 @@ _start:
     ; Save input buffer state
     mov                 [rel input_buffer], rbp
     mov                 [rel input_buffer_size], r12    ; not needed until cleanup
-    mov                 [rel input_buffer_offset], r14
+    ; Current offset is no longer needed.
 
     ; Parse the iteration count
     pop                 r8                              ; iteration count string pointer
@@ -406,7 +418,7 @@ _start:
     mov                 r9, [rel first_line_length]
     test                r9, r9
     jz                  .write_remaining_output         ; there is nothing to print
-    PUSH                rsp, r13, r12, rbp, 0, r9, .free_stack_and_input_from_memory
+    PUSH                rsp, r13, r12, rbp, 0, r9, .free_both_buffers_and_quit
 
     xor                 r14, r14                        ; character store
     xor                 r9, r9                          ; write buffer offset
@@ -437,12 +449,12 @@ _start:
     jz                  .continue_recursion             ; the rule is empty
 
     ; Push an execution on this rule.
-    PUSH                rsp, r13, r12, rdi, 0, rdx, .free_stack_and_input_from_memory
+    PUSH                rsp, r13, r12, rdi, 0, rdx, .free_both_buffers_and_quit
     dec                 r15                             ; recursion depth counter
     jmp                 .process_character
 
 .write_char:
-    WRITE               r9, r14b, .free_stack_and_input_from_memory
+    WRITE               r9, r14b, .free_both_buffers_and_quit
 
 .continue_recursion:
     mov                 rcx, [rbp + 8]                  ; character index
@@ -456,23 +468,21 @@ _start:
     jnz                 .continue_recursion
 
 .write_remaining_output:
-    WRITE               r9, LINE_BREAK, .free_stack_and_input_from_memory
-    FLUSH               r9, .free_stack_and_input_from_memory
+    WRITE               r9, LINE_BREAK, .free_both_buffers_and_quit
+    FLUSH               r9, .free_both_buffers_and_quit
 
     mov                 eax, SYS_EXIT
     xor                 edi, edi
     syscall
 
-.free_stack_and_input_from_memory:
-    ; TODO: Free the input buffer from memory and free the stack from register.
-
 .free_both_buffers_and_quit:
-    ; TODO: Free the "stack" buffer.
-    nop
+    FREE                rsp, r12
+    ; Load input string buffer for subsequent free.
+    mov                 rbp, [rel input_buffer]
+    mov                 r12, [rel input_buffer_size]
 
 .free_input_buffer_and_quit:
-    ; TODO: Free the input buffer.
-    nop
+    FREE                rbp, r12
 
 .error_exit:
     mov                 eax, SYS_EXIT
