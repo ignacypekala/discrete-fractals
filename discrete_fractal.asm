@@ -299,7 +299,7 @@ _start:
     jz                  .scan_input                     ; eof
     add                 r14, rax                        ; advance offset
     cmp                 rax, rdx
-    jbe                  .load_input                     ; not all bytes read
+    jb                  .load_input                     ; not all bytes read
     REALLOC             rbp, r12, .free_input_buffer_and_quit 
     jmp                 .load_input                     ; buffer filled, continue reading
 
