@@ -224,10 +224,10 @@ EXIT_FAILURE            equ 1
 ;   %1 - number of bytes left to read
 ;  
 %macro FLUSH 2
-%%flush_write_buffer:
     mov                 eax, SYS_WRITE
     mov                 edi, STD_OUT
     lea                 rsi, [rel write_buffer]
+%%flush_write_buffer:
     mov                 rdx, %1
     syscall
     test                rax, rax
