@@ -471,6 +471,11 @@ _start:
     WRITE               r9, LINE_BREAK, .free_both_buffers_and_quit
     FLUSH               r9, .free_both_buffers_and_quit
 
+    FREE                rsp, r12
+    mov                 rbp, [rel input_buffer]
+    mov                 r12, [rel input_buffer_size]
+    FREE                rbp, r12
+
     mov                 eax, SYS_EXIT
     xor                 edi, edi
     syscall
