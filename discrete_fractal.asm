@@ -1,3 +1,25 @@
+;
+;                                         Discrete Fractals
+;                                         by Ignacy Pękała
+;
+; Takes an initial string and a set of replacement rules. Performs n iterations on the initial
+; string. The replacements are evaluated recursively using a custom stack allocated on the heap 
+; to prevent standard stack overflows during deep iterations. Each character of the current string 
+; is checked against a direct-mapped rule registry. If a matching rule exists and the current 
+; recursion depth allows, the character is expanded using its rule. Otherwise, it is buffered 
+; and written directly to standard output.
+;
+; Usage:
+; ./discrete_fractal n
+; 
+; Input:
+;   [initial string]
+;   [rule 1]
+;   [rule 2]
+;   ...
+; 
+; Writes the output string to standard output.
+;
 global _start
 
 SYS_EXIT                equ 60
@@ -56,7 +78,7 @@ ERROR_CODE              equ 1
 ;
 %macro MALLOC 1
     mov                 rax, SYS_MMAP
-    xor                 rdi, rdi                        ; address hint
+    xor                 rdi, rdi                        ; zero address hint to let os choose
     mov                 rsi, INITIAL_BUFFER_SIZE
     mov                 edx, PROT_READ | PROT_WRITE
     mov                 r10, MAP_PRIVATE | MAP_ANONYMOUS
@@ -89,7 +111,7 @@ ERROR_CODE              equ 1
     mov                 rdi, %1                         ; original address
     mov                 rsi, %2                         ; original size
     mov                 rdx, rsi
-    shl                 rdx, 1                          ; new size
+    shl                 rdx, 1                          ; double buffer size
     mov                 r10, MREMAP_MAYMOVE
     syscall
     test                rax, rax
@@ -110,43 +132,43 @@ ERROR_CODE              equ 1
 ;   %4 - invalid character jump label                   (label)
 ;
 ; Affected registers (on normal return):
-;   rax - al contains the line break character, or 0 if the read limit was reached.
+;   rax - al contains the line break character, or 0 if the read limit was reached
 ;   rcx - number of bytes scanned (index of the line break, or exactly %3 if limit reached)
 ;   r11 - max read pointer (%1 + %2 + %3)
 ;
 ; Affected registers (on jump to %4):
-;   rax - al contains the invalid character that triggered the jump.
+;   rax - al contains the invalid character that triggered the jump
 ;   rcx - absolute memory pointer to the invalid character
 ;
 %macro SCAN_LINE 4
     lea                 rcx, [%1 + %2]                  ; start pointer
     lea                 r11, [rcx + %3]                 ; end pointer
-    xor                 eax, eax                        ; prepare al for the scanned byte
+    xor                 eax, eax                        ; clear register for scanned byte
 
 %%scan_character:
     cmp                 rcx, r11
-    jz                  %%return                        ; eof
+    jz                  %%return                        ; read limit reached
 
-    mov                 al, [rcx]                       ; byte to check
+    mov                 al, [rcx]                       ; current byte
     cmp                 al, LINE_BREAK
     je                  %%return                        ; line break found
     cmp                 al, ASCII_START
-    jb                  %4                              ; invalid character
+    jb                  %4                              ; below allowed ascii range
     cmp                 al, ASCII_END
-    ja                  %4                              ; invalid character
+    ja                  %4                              ; above allowed ascii range
 
     inc                 rcx
     jmp                 %%scan_character
 
 %%return:
-    ; Convert the line break pointer to its position relative to the offset.
+    ; calculate position relative to start offset
     sub                 rcx, %1
     sub                 rcx, %2
 %endmacro
 
 ;
 ; Push one set of three values into the "stack" buffer, without checking if it will fit. 
-; Reallocate the buffer if there is is no space of another set of three.
+; Reallocate the buffer if there is no space for another set of three.
 ;
 ; Parameters:
 ;   %1 - base pointer                                   (r64)
@@ -172,7 +194,7 @@ ERROR_CODE              equ 1
     
     lea                 r11, [%3 - STACK_ENTRY_SIZE]
     sub                 r11, %2
-    jns                 %%return                        ; (total size - offset) < STACK_ENTRY_SIZE
+    jns                 %%return                        ; space remains for next push
     REALLOC             %1, %3, %7
 %%return:
 %endmacro
@@ -213,10 +235,10 @@ ERROR_CODE              equ 1
     test                rax, rax
     js                  %2
     cmp                 rax, %1
-    jz                  %%return                        ; buffer flushed completely
+    jz                  %%return                        ; entire buffer flushed
     add                 rsi, rax 
     sub                 %1, rax
-    jmp                 %%flush_write_buffer            ; reattempt flush
+    jmp                 %%flush_write_buffer            ; retry partial flush
 %%return:
     sub                 %1, rax
 %endmacro
@@ -239,7 +261,7 @@ ERROR_CODE              equ 1
 ;
 %macro WRITE 3
     cmp                 %1, WRITE_BUFFER_SIZE
-    jb                  %%append_character              ; sufficient space
+    jb                  %%append_character              ; capacity available
     FLUSH               %1, %3
 %%append_character:
     lea                 r11, [rel write_buffer]
@@ -285,122 +307,168 @@ write_buffer:           resb WRITE_BUFFER_SIZE
 section .text
 
 ;
-; Registers:
-;   rax, rdi, rsi, rdx, r10, r8, r9 - syscall parameters or localized scratchpads
-;   rcx, r11 - localized scratchpads often clobbered by syscalls
-;   rbp, rbx - buffer pointers
-;   r12, r13, r14 - buffer states
-;   r15 - scratchpad
+; Program Entry Point.
+; Validates command-line arguments and extracts the maximum recursion depth.
+; Allocates memory and reads standard input to build an initial string and rule registry.
+; Initializes a custom heap-allocated stack for recursive rule evaluation.
+; Iterates through characters, expanding them based on rules up to the specified depth.
+; Flushes the final expanded sequence to standard output and gracefully releases memory.
+;
+; Global Register Usage:
+;   rax, rdi, rsi, rdx, r10, r8, r9 - syscall parameters or short-lived scratchpads
+;   rcx, r11 - short-lived scratchpads often clobbered by syscalls
+;   rbp, rbx - structural base pointers
+;   r12, r13, r14, r15 - long-lived state variables
 ;
 
 _start:
-    ; Validate parameter count.
+    ; validate parameter count passed by os
     pop                 rax
     cmp                 rax, PARAMETER_COUNT
     jnz                 .error_exit
-    pop                 rax                             ; program name
+    pop                 rax                             ; skip program name
 
-    ; Allocate input buffer.
-    ; TODO: Manage the address hints
+    ; initial setup of input buffer
     MALLOC              .error_exit
-
-    ; Initialize the input buffer state.
     mov                 rbp, rax                        ; base address
-    mov                 r12, rsi                        ; total size
-    xor                 r14, r14                        ; current offset
+    mov                 r12, rsi                        ; total capacity
+    xor                 r14, r14                        ; write offset
 
-.load_input:
+; 
+; Read standard input into the dynamically resizing input buffer.
+; Repetitively populates the buffer with bytes from standard input. 
+; On partial reads, retries with the remaining bytes. 
+; On io error, frees the input buffer and exits. 
+; On eof, proceeds to input parsing.
+;
+; Active Registers:
+;   rbp - input buffer base address
+;   r12 - input buffer total capacity
+;   r14 - current write offset within the buffer
+;
+.read_stdin_loop:
     mov                 rax, SYS_READ
-    xor                 edi, edi                        ; stdin
-    lea                 rsi, [rbp + r14]                ; address
+    xor                 edi, edi                        ; standard input fd
+    lea                 rsi, [rbp + r14]                ; write target address
     mov                 rdx, r12
-    sub                 rdx, r14                        ; max read count
+    sub                 rdx, r14                        ; maximum bytes to read
     syscall
     test                rax, rax
-    js                  .free_input_buffer_and_quit     ; read error
-    jz                  .scan_input                     ; eof
-    add                 r14, rax                        ; advance offset
+    js                  .free_input_buffer_and_quit     ; read failure
+    jz                  .parse_initial_string           ; end of file reached
+    add                 r14, rax                        ; advance offset by read length
     cmp                 rax, rdx
-    jb                  .load_input                     ; not all bytes read
+    jb                  .read_stdin_loop                ; retry if buffer not fully populated
     REALLOC             rbp, r12, .free_input_buffer_and_quit 
-    jmp                 .load_input                     ; buffer filled, continue reading
+    jmp                 .read_stdin_loop                ; continue reading into expanded buffer
 
-.scan_input:
-    mov                 r8, r14                         ; scan limit
-    xor                 rdx, rdx                        ; scan iterator
+;
+; Scan the populated input buffer to locate the first line break.
+; Extracts the initial string length and adjusts pointers to begin parsing 
+; subsequent lines as replacement rules.
+;
+; Active Registers:
+;   rbp - input buffer base address
+;   r14 - total bytes read from standard input
+;
+.parse_initial_string:
+    mov                 r8, r14                         ; scan boundary limit
+    xor                 rdx, rdx                        ; initial scan offset
     SCAN_LINE           rbp, rdx, r8, .free_input_buffer_and_quit 
     cmp                 al, LINE_BREAK
-    jne                 .free_input_buffer_and_quit     ; line break not found
+    jne                 .free_input_buffer_and_quit     ; strict termination required
     mov                 [rel first_line_length], rcx
-    inc                 rcx                             ; skip line break
-    add                 rdx, rcx                        ; advance offset
-    sub                 r8, rcx                         ; update scan limit
+    inc                 rcx                             ; bypass line break character
+    add                 rdx, rcx                        ; advance parsing offset
+    sub                 r8, rcx                         ; reduce remaining bytes limit
 
-.build_rules_registry:
+;
+; Populate the direct-mapped rule registry array from standard input.
+; Iterates through remaining lines, using the first character of each line 
+; as the rule trigger and the remainder as the replacement string.
+;
+; Active Registers:
+;   rbp - input buffer base address
+;   rbx - rules registry base pointer
+;   r14 - total bytes read from standard input
+;   rdx - current read offset within input buffer
+;   r8  - remaining bytes left to process
+;
+.initialize_rules_registry:
     lea                 rbx, [rel rules_registry]
     cmp                 rdx, r14
-    jae                 .save_input_buffer              ; no rules
+    jae                 .finalize_input_parsing         ; bypass if no rules exist
 
-.register_rule:
+.parse_rule_line:
     SCAN_LINE           rbp, rdx, r8, .free_input_buffer_and_quit
     cmp                 al, LINE_BREAK
-    jne                 .free_input_buffer_and_quit     ; unterminated line or no rule
+    jne                 .free_input_buffer_and_quit     ; malformed or missing rule line
     test                rcx, rcx
-    jz                  .free_input_buffer_and_quit     ; empty rule
+    jz                  .free_input_buffer_and_quit     ; empty rule line detected
 
-    ; Save rule info to the registry.
-    lea                 r11, [rbp + rdx]                ; rule input buffer pointer
-    mov                 al, [r11]                       ; rule character
+    ; extract target character and validate rule body
+    lea                 r11, [rbp + rdx]                ; pointer to rule definition
+    mov                 al, [r11]                       ; character to be replaced
 
     test                rcx, rcx
-    jz                  .free_input_buffer_and_quit     ; the rule is empty
-    inc                 r11
-    dec                 rcx                             ; skip the rule character
+    jz                  .free_input_buffer_and_quit     ; rule body missing
+    inc                 r11                             ; pointer to replacement string
+    dec                 rcx                             ; string length excluding trigger char
 
+    ; compute registry offset mapped to ascii value
     mov                 rsi, rax                        
-    sub                 rsi, ASCII_START                ; registry character index
-    shl                 rsi, 4                          ; registry character offset
+    sub                 rsi, ASCII_START                ; normalized registry index
+    shl                 rsi, 4                          ; scale by registry entry size (16 bytes)
 
+    ; ensure rule uniqueness
     mov                 rax, [rbx + rsi]
     test                rax, rax
-    jnz                 .free_input_buffer_and_quit     ; duplicate rule
+    jnz                 .free_input_buffer_and_quit     ; multiple rules for same character
     
-    mov                 [rbx + rsi], r11                ; start pointer
-    mov                 [rbx + rsi + 8], rcx            ; length
+    ; populate registry entry
+    mov                 [rbx + rsi], r11                ; replacement string pointer
+    mov                 [rbx + rsi + 8], rcx            ; replacement string length
     
-    inc                 rcx                             ; revert the rule character exclusion
+    inc                 rcx                             ; restore length for offset math
 
-.continue_registration:
-    inc                 rcx                             ; first character after the line break
-    add                 rdx, rcx                        ; Advance the rules buffer offset.
-    sub                 r8, rcx                         ; Update the available space size.
+.resume_rule_parsing:
+    inc                 rcx                             ; jump over line break character
+    add                 rdx, rcx                        ; advance parsing offset
+    sub                 r8, rcx                         ; reduce remaining bytes limit
     cmp                 rdx, r14
-    jb                  .register_rule                  ; There are still rules to register.
+    jb                  .parse_rule_line                ; parse next line if data remains
 
-.save_input_buffer:
-    ; Save input buffer state
+;
+; Persist standard input configuration and parse the command-line argument 
+; specifying maximum recursion depth into an integer.
+;
+; Active Registers:
+;   rbp - input buffer base address
+;   r12 - input buffer total capacity
+;
+.finalize_input_parsing:
+    ; offload input state to memory, freeing registers for core logic
     mov                 [rel input_buffer], rbp
-    mov                 [rel input_buffer_size], r12    ; not needed until cleanup
-    ; Current offset is no longer needed.
-
-    ; Parse the iteration count
-    pop                 r8                              ; iteration count string pointer
+    mov                 [rel input_buffer_size], r12
+    
+    ; extract recursion depth argument
+    pop                 r8                              ; iteration count arg pointer
     mov                 al, byte [r8]
     test                al, al                        
-    jz                  .free_input_buffer_and_quit     ; the string is empty
+    jz                  .free_input_buffer_and_quit     ; arg missing
 
     xor                 eax, eax
-    xor                 r15, r15                        ; final n
+    xor                 r15, r15                        ; final n accumulator
     xor                 r10, r10
     
-.parse_iteration_count_digit:
-    mov                 al, [r8]                        ; parsed character
+.parse_iteration_count:
+    mov                 al, [r8]                        ; current digit character
     test                al, al
-    jz                  .prepare_for_main_processing    ; string parsed
+    jz                  .init_recursive_stack           ; null terminator reached
     cmp                 al, '9'
-    ja                  .free_input_buffer_and_quit     ; invalid character
+    ja                  .free_input_buffer_and_quit     ; outside numeric ascii range
     sub                 al, '0'
-    jb                  .free_input_buffer_and_quit     ; invalid character
+    jb                  .free_input_buffer_and_quit     ; outside numeric ascii range
     
     ; The maximum intermediate result (2^32 - 1) easily fits within the 
     ; 64-bit register, guaranteeing imul will never truncate the value. 
@@ -409,74 +477,100 @@ _start:
     imul                r15, 10
     add                 r15, rax
     
-    ; TODO: Explain why this r10d
+    ; moving a 32-bit immediate into a 32-bit register zero-extends 
+    ; it to 64 bits, allowing a valid 64-bit comparison against r15
     mov                 r10d, N_MAX
     cmp                 r15, r10
-    ja                  .free_input_buffer_and_quit     ; n too big
+    ja                  .free_input_buffer_and_quit     ; exceeds maximum supported depth
 
     inc                 r8
-    jmp                 .parse_iteration_count_digit
+    jmp                 .parse_iteration_count
 
-.prepare_for_main_processing:
-    mov                 r14, rbp
-    ; Allocate a "stack" on the heap.
+;
+; Initialize the heap-based stack designed to track recursive string processing 
+; and push the initial string base evaluation frame.
+;
+; Active Registers:
+;   r15 - maximum recursion depth
+;   rbx - rules registry pointer
+;
+.init_recursive_stack:
+    mov                 r14, rbp                        ; preserve input buffer base
+    
     MALLOC              .free_input_buffer_and_quit
-    mov                 rbp, rax                        ; base pointer
-    mov                 r12, rsi                        ; total size
-    xor                 r13, r13                        ; current offset
+    mov                 rbp, rax                        ; stack base address
+    mov                 r12, rsi                        ; stack total capacity
+    xor                 r13, r13                        ; stack current offset
 
-    ; Push the initial execution on the input string.
+    ; bootstrap recursive evaluation
     mov                 r9, [rel first_line_length]
     test                r9, r9
-    jz                  .write_remaining_output         ; there is nothing to print
+    jz                  .write_remaining_output         ; abort if initial string empty
     PUSH                rbp, r13, r12, r14, 0, r9, .free_both_buffers_and_quit
 
-    xor                 r14, r14                        ; character store
-    xor                 r9, r9                          ; write buffer offset
+    xor                 r14, r14                        ; character evaluation scratchpad
+    xor                 r9, r9                          ; stdout write buffer offset
 
-.process_character:
-    lea                 r11, [rbp + r13 - STACK_ENTRY_SIZE]     ; stack top pointer
-    mov                 rcx, [r11 + 8]                          ; character index
-    inc                 qword [r11 + 8]                         ; mark character as handled
+;
+; Core processing loop. Pops the current character from the active stack frame 
+; and determines whether to recursively expand it based on the rule registry 
+; or write it directly to the output buffer.
+;
+; Active Registers:
+;   rbp - stack base address
+;   r12 - stack total capacity
+;   r13 - stack current offset
+;   r15 - current recursion depth limit
+;   r9  - stdout write buffer offset
+;   rbx - rules registry base pointer
+;
+.evaluate_character:
+    lea                 r11, [rbp + r13 - STACK_ENTRY_SIZE]     ; active frame pointer
+    mov                 rcx, [r11 + 8]                          ; current character index
+    inc                 qword [r11 + 8]                         ; increment index for next cycle
 
-    mov                 r11, qword [r11]                ; base pointer
-    mov                 r14b, [r11 + rcx]               ; string character
+    mov                 r11, qword [r11]                ; string base pointer
+    mov                 r14b, [r11 + rcx]               ; extract character to evaluate
 
-    ; Identify the rule
+    ; calculate registry offset for target character
     mov                 rcx, r14
-    sub                 rcx, ASCII_START                ; character index
-    shl                 rcx, 4                          ; character offset
-    mov                 rdi, [rbx + rcx]                ; rule pointer
+    sub                 rcx, ASCII_START                ; normalized registry index
+    shl                 rcx, 4                          ; scale by registry entry size
+    mov                 rdi, [rbx + rcx]                ; replacement rule pointer
 
-    ; Check if rule application should be skipped.
+    ; determine recursive viability
     test                rdi, rdi
-    jz                  .write_char                     ; there is no rule
+    jz                  .write_character                ; no replacement rule mapped
     test                r15, r15
-    jz                  .write_char                     ; recursion depth limit reached
+    jz                  .write_character                ; recursion depth exhausted
 
-    ; Grab rule details
-    mov                 rdx, [rbx + rcx + 8]            ; rule length
+    mov                 rdx, [rbx + rcx + 8]            ; replacement string length
     test                rdx, rdx
-    jz                  .continue_recursion             ; the rule is empty
+    jz                  .resume_parent_frame            ; rule replaces char with empty string
 
-    ; Push an execution on this rule.
+    ; deploy child evaluation frame
     PUSH                rbp, r13, r12, rdi, 0, rdx, .free_both_buffers_and_quit
-    dec                 r15                             ; recursion depth counter
-    jmp                 .process_character
+    dec                 r15                             ; deduct recursion depth allowance
+    jmp                 .evaluate_character
 
-.write_char:
+.write_character:
     WRITE               r9, r14b, .free_both_buffers_and_quit
 
-.continue_recursion:
-    lea                 r11, [rbp + r13 - STACK_ENTRY_SIZE]     ; stack top pointer
-    mov                 rcx, [r11 + 8]                          ; character index
-    cmp                 rcx, [r11 + 16]                         ; string length
-    jb                  .process_character                      ; the top recursive call is not completed
+;
+; Evaluate the status of the active stack frame. If the frame is incomplete, 
+; jumps back to evaluate the next character. Otherwise, pops the frame and 
+; restores the parent recursion state.
+;
+.resume_parent_frame:
+    lea                 r11, [rbp + r13 - STACK_ENTRY_SIZE]     ; active frame pointer
+    mov                 rcx, [r11 + 8]                          ; current character index
+    cmp                 rcx, [r11 + 16]                         ; compare against string length
+    jb                  .evaluate_character                     ; frame execution incomplete
 
     POP                 r13
-    inc                 r15                             ; recursion depth counter
+    inc                 r15                             ; refund recursion depth allowance
     test                r13, r13
-    jnz                 .continue_recursion
+    jnz                 .resume_parent_frame            ; continue if parent frames remain
 
 .write_remaining_output:
     WRITE               r9, LINE_BREAK, .free_both_buffers_and_quit
@@ -493,7 +587,6 @@ _start:
 
 .free_both_buffers_and_quit:
     FREE                rbp, r12
-    ; Load input string buffer for subsequent free.
     mov                 rbp, [rel input_buffer]
     mov                 r12, [rel input_buffer_size]
 
