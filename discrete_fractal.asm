@@ -292,10 +292,12 @@ section .bss
 input_buffer_pointer:   resq 1
 input_buffer_capacity:  resq 1
 initial_string_length:  resq 1
+
+alignb                  16
 rules_registry:         resb REGISTRY_TOTAL_SIZE
 
 alignb                  PAGE_SIZE
-stdout_flush_buffer:           resb OUTPUT_CHUNK_SIZE
+stdout_flush_buffer:    resb OUTPUT_CHUNK_SIZE
 
 section .text
 
