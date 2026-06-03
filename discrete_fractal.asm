@@ -307,11 +307,13 @@ section .text
 
 ;
 ; Program Entry Point.
-; Validates command-line arguments and extracts the maximum recursion depth.
-; Allocates memory and reads standard input to build an initial string and rule registry.
-; Initializes a custom heap-allocated stack for recursive rule evaluation.
-; Iterates through characters, expanding them based on rules up to the specified depth.
-; Flushes the final expanded sequence to standard output and gracefully releases memory.
+; Manages the execution of the fractal generator. It uses dynamic memory mapping 
+; (sys_mmap/sys_mremap) to handle resizable I/O buffers and a custom heap-allocated 
+; stack, which prevents standard stack overflows during deep recursion. Replacement 
+; rules are parsed into a direct-mapped ASCII array for O(1) lookups. The main loop 
+; evaluates and recursively expands characters up to the target iteration depth, 
+; buffering the output and flushing it to standard output in chunks to minimize 
+; syscall overhead.
 ;
 ; Global Register Usage:
 ;   rax, rdi, rsi, rdx, r10, r8, r9 - syscall parameters or short-lived scratchpads
