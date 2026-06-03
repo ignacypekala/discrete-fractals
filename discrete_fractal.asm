@@ -1,25 +1,24 @@
 ;
-;                                         Discrete Fractals
+;                                        Discrete Fractals
 ;                                         by Ignacy Pękała
 ;
-; Takes an initial string and a set of replacement rules. Performs n iterations on the initial
-; string. The replacements are evaluated recursively using a custom stack allocated on the heap 
-; to prevent standard stack overflows during deep iterations. Each character of the current string 
-; is checked against a direct-mapped rule registry. If a matching rule exists and the current 
-; recursion depth allows, the character is expanded using its rule. Otherwise, it is buffered 
-; and written directly to standard output.
+; Generates an ASCII-based discrete fractal by applying string replacement rules. The program reads
+; an initial string of symbols (ASCII 33-126) and a sequence of replacement rules from standard
+; input. It performs exactly n iterations of substitution, where every matching symbol in the
+; current string is replaced by its specified replacement sequence. After computing the final
+; fractal sequence, the program prints the resulting string to standard output, terminated by a
+; newline.
 ;
 ; Usage:
 ; ./discrete_fractal n
 ; 
-; Input:
+; Input (via stdin):
 ;   [initial string]
 ;   [rule 1]
 ;   [rule 2]
 ;   ...
-; 
-; Writes the output string to standard output.
 ;
+
 global _start
 
 SYS_EXIT                equ 60
