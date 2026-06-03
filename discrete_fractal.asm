@@ -218,14 +218,14 @@ EXIT_FAILURE            equ 1
 ;
 ; Affected registers:
 ;   rcx, r11, rax, rdi - clobbered
-;   rsi - pointer to the character following the last read (write_buffer + OUTPUT_CHUNK_SIZE on success)
+;   rsi - pointer to the character following the last read (stdout_flush_buffer + OUTPUT_CHUNK_SIZE on success)
 ;   %1 - number of bytes left to read
 ;  
 %macro FLUSH 2
-%%flush_write_buffer:
+%%flush_stdout_flush_buffer:
     mov                 eax, SYS_WRITE
     mov                 edi, STD_OUT
-    lea                 rsi, [rel write_buffer]
+    lea                 rsi, [rel stdout_flush_buffer]
     mov                 rdx, %1
     syscall
     test                rax, rax
@@ -234,7 +234,7 @@ EXIT_FAILURE            equ 1
     jz                  %%return                        ; entire buffer flushed
     add                 rsi, rax 
     sub                 %1, rax
-    jmp                 %%flush_write_buffer            ; retry partial flush
+    jmp                 %%flush_stdout_flush_buffer            ; retry partial flush
 %%return:
     sub                 %1, rax
 %endmacro
@@ -260,7 +260,7 @@ EXIT_FAILURE            equ 1
     jb                  %%append_character              ; capacity available
     FLUSH               %1, %3
 %%append_character:
-    lea                 r11, [rel write_buffer]
+    lea                 r11, [rel stdout_flush_buffer]
     mov                 [r11 + %1], byte %2
     inc                 %1
 %endmacro
@@ -289,16 +289,13 @@ EXIT_FAILURE            equ 1
 
 section .bss
 
-input_buffer:           resq 1
-input_buffer_size:      resq 1
-input_buffer_offset:    resq 1
-
-first_line_length:      resq 1
-
+input_buffer_pointer:   resq 1
+input_buffer_capacity:  resq 1
+initial_string_length:  resq 1
 rules_registry:         resb REGISTRY_TOTAL_SIZE
 
 alignb                  PAGE_SIZE
-write_buffer:           resb OUTPUT_CHUNK_SIZE
+stdout_flush_buffer:           resb OUTPUT_CHUNK_SIZE
 
 section .text
 
@@ -375,7 +372,7 @@ _start:
     SCAN_LINE           rbp, rdx, r8, .free_input_buffer_and_quit 
     cmp                 al, LINE_BREAK
     jne                 .free_input_buffer_and_quit     ; strict termination required
-    mov                 [rel first_line_length], rcx
+    mov                 [rel initial_string_length], rcx
     inc                 rcx                             ; bypass line break character
     add                 rdx, rcx                        ; advance parsing offset
     sub                 r8, rcx                         ; reduce remaining bytes limit
@@ -446,8 +443,8 @@ _start:
 ;
 .finalize_input_parsing:
     ; offload input state to memory, freeing registers for core logic
-    mov                 [rel input_buffer], rbp
-    mov                 [rel input_buffer_size], r12
+    mov                 [rel input_buffer_pointer], rbp
+    mov                 [rel input_buffer_capacity], r12
     
     ; extract recursion depth argument
     pop                 r8                              ; iteration count arg pointer
@@ -501,7 +498,7 @@ _start:
     xor                 r13, r13                        ; stack current offset
 
     ; bootstrap recursive evaluation
-    mov                 r9, [rel first_line_length]
+    mov                 r9, [rel initial_string_length]
     test                r9, r9
     jz                  .write_remaining_output         ; abort if initial string empty
     PUSH                rbp, r13, r12, r14, 0, r9, .free_both_buffers_and_quit
@@ -575,8 +572,8 @@ _start:
     FLUSH               r9, .free_both_buffers_and_quit
 
     FREE                rbp, r12
-    mov                 rbp, [rel input_buffer]
-    mov                 r12, [rel input_buffer_size]
+    mov                 rbp, [rel input_buffer_pointer]
+    mov                 r12, [rel input_buffer_capacity]
     FREE                rbp, r12
 
     mov                 eax, SYS_EXIT
@@ -585,8 +582,8 @@ _start:
 
 .free_both_buffers_and_quit:
     FREE                rbp, r12
-    mov                 rbp, [rel input_buffer]
-    mov                 r12, [rel input_buffer_size]
+    mov                 rbp, [rel input_buffer_pointer]
+    mov                 r12, [rel input_buffer_capacity]
 
 .free_input_buffer_and_quit:
     FREE                rbp, r12
