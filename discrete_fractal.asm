@@ -1,6 +1,6 @@
 ;
-;                                        Discrete Fractals
-;                                         by Ignacy Pękała
+; Discrete Fractals
+; Author: Ignacy Pękała
 ;
 ; Generates an ASCII-based discrete fractal by applying string replacement rules. The program reads
 ; an initial string of symbols (ASCII 33-126) and a sequence of replacement rules from standard
