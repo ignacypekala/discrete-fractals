@@ -2,7 +2,7 @@
 ; Discrete Fractals
 ; Author: Ignacy Pękała
 ;
-; Generates an ASCII-based discrete fractal by applying string replacement rules. The program reads
+; Generates an ASCII-based discrete fractal by applying string replacement rules. The program reads   
 ; an initial string of symbols (ASCII 33-126) and a sequence of replacement rules from standard
 ; input. It performs exactly n iterations of substitution, where every matching symbol in the
 ; current string is replaced by its specified replacement sequence. After computing the final
